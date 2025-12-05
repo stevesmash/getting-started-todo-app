@@ -1,4 +1,4 @@
-# plugo
+# ghostlock-backend
 
 GhostLock Backend built with FastAPI.
 
