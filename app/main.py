@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routes import apikeys, auth
+from app.routes import apikeys, auth, cases, entities, relationships
 from app.schemas import HealthResponse
 
 settings = get_settings()
@@ -28,3 +28,6 @@ def root() -> HealthResponse:
 
 app.include_router(auth.router)
 app.include_router(apikeys.router)
+app.include_router(cases.router)
+app.include_router(entities.router)
+app.include_router(relationships.router)

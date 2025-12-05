@@ -35,6 +35,21 @@ GhostLock Backend built with FastAPI.
 - `GET /apikeys/{key_id}` – Retrieve a specific API key owned by the user.
 - `PATCH /apikeys/{key_id}` – Update an API key's name, description, or active status.
 - `DELETE /apikeys/{key_id}` – Delete an existing API key.
+- `GET /cases/` – List cases for the authenticated user.
+- `POST /cases/` – Create a new case.
+- `GET /cases/{case_id}` – Retrieve a specific case.
+- `PATCH /cases/{case_id}` – Update case details.
+- `DELETE /cases/{case_id}` – Delete a case along with its entities and relationships.
+- `GET /entities/` – List entities (optionally filter by `case_id`).
+- `POST /entities/` – Create an entity within a case.
+- `GET /entities/{entity_id}` – Retrieve a specific entity.
+- `PATCH /entities/{entity_id}` – Update an entity's attributes.
+- `DELETE /entities/{entity_id}` – Delete an entity and its attached relationships.
+- `GET /relationships/` – List relationships (optionally filter by `case_id`).
+- `POST /relationships/` – Create a relationship between two entities.
+- `GET /relationships/{relationship_id}` – Retrieve a specific relationship.
+- `PATCH /relationships/{relationship_id}` – Update relationship metadata.
+- `DELETE /relationships/{relationship_id}` – Delete a relationship.
 
 ## Notes
 - This backend uses in-memory storage for demonstration. Replace `app.storage` with a persistent database for production use.

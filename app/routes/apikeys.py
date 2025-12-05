@@ -32,7 +32,10 @@ def get_api_key(key_id: int, current_user: UserPublic = Depends(get_current_user
     try:
         return store.get_api_key(owner=current_user.username, key_id=key_id)
     except KeyError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.args[0] if exc.args else "API key not found",
+        ) from exc
 
 
 @router.patch("/{key_id}", response_model=ApiKey)
@@ -44,7 +47,10 @@ def update_api_key(
     try:
         return store.update_api_key(owner=current_user.username, key_id=key_id, payload=payload)
     except KeyError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.args[0] if exc.args else "API key not found",
+        ) from exc
 
 
 @router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -54,4 +60,7 @@ def delete_api_key(key_id: int, current_user: UserPublic = Depends(get_current_u
     try:
         store.delete_api_key(owner=current_user.username, key_id=key_id)
     except KeyError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.args[0] if exc.args else "API key not found",
+        ) from exc
