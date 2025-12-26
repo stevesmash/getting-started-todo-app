@@ -1,14 +1,22 @@
 """Pydantic schemas shared across the application."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, Field
 
 
+# =========================
+# Health
+# =========================
+
 class HealthResponse(BaseModel):
     message: str
 
+
+# =========================
+# Users / Auth
+# =========================
 
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
@@ -35,6 +43,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+# =========================
+# API Keys
+# =========================
+
 class ApiKeyBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
     description: Optional[str] = None
@@ -57,6 +69,10 @@ class ApiKeyUpdate(BaseModel):
     active: Optional[bool] = None
 
 
+# =========================
+# Cases
+# =========================
+
 class CaseBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=150)
     description: Optional[str] = None
@@ -75,6 +91,10 @@ class CaseUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=150)
     description: Optional[str] = None
 
+
+# =========================
+# Entities
+# =========================
 
 class EntityBase(BaseModel):
     case_id: int
@@ -97,6 +117,10 @@ class EntityUpdate(BaseModel):
     kind: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
 
+
+# =========================
+# Relationships
+# =========================
 
 class RelationshipBase(BaseModel):
     source_entity_id: int
