@@ -1,0 +1,164 @@
+"""
+SQLite-backed storage layer for GhostLock.
+Drop-in replacement for in-memory storage.
+"""
+
+import sqlite3
+from typing import Dict, List, Optional
+from datetime import datetime
+from threading import Lock
+
+DB_PATH = "ghostlock.db"
+_lock = Lock()
+
+
+def _dict_factory(cursor, row):
+    return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+
+
+class SQLiteStore:
+    def __init__(self):
+        self._init_db()
+
+    def _connect(self):
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        conn.row_factory = _dict_factory
+        return conn
+
+    def _init_db(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """)
+
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                description TEXT,
+                key TEXT,
+                active INTEGER,
+                owner TEXT
+            )
+            """)
+
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS cases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                description TEXT,
+                owner TEXT
+            )
+            """)
+
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS entities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id INTEGER,
+                name TEXT,
+                kind TEXT,
+                description TEXT,
+                owner TEXT
+            )
+            """)
+
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS relationships (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_entity_id INTEGER,
+                target_entity_id INTEGER,
+                relation TEXT,
+                owner TEXT
+            )
+            """)
+
+            conn.commit()
+
+    # -------- USERS --------
+
+    def create_user(self, username: str, password_hash: str):
+        with _lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO users VALUES (?, ?, ?)",
+                (username, password_hash, datetime.utcnow().isoformat())
+            )
+            conn.commit()
+
+    def get_user(self, username: str) -> Optional[Dict]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM users WHERE username = ?",
+                (username,)
+            )
+            return cur.fetchone()
+
+    # -------- API KEYS --------
+
+    def create_api_key(self, data: Dict) -> Dict:
+        with _lock, self._connect() as conn:
+            cur = conn.execute(
+                "INSERT INTO api_keys (name, description, key, active, owner) VALUES (?, ?, ?, ?, ?)",
+                (
+                    data["name"],
+                    data.get("description"),
+                    data["key"],
+                    int(data["active"]),
+                    data["owner"],
+                )
+            )
+            conn.commit()
+            data["id"] = cur.lastrowid
+            return data
+
+    def list_api_keys(self, owner: str) -> List[Dict]:
+        with self._connect() as conn:
+            return conn.execute(
+                "SELECT * FROM api_keys WHERE owner = ?",
+                (owner,)
+            ).fetchall()
+
+    def get_api_key(self, key_id: int, owner: str) -> Optional[Dict]:
+        with self._connect() as conn:
+            return conn.execute(
+                "SELECT * FROM api_keys WHERE id = ? AND owner = ?",
+                (key_id, owner)
+            ).fetchone()
+
+    def delete_api_key(self, key_id: int, owner: str):
+        with _lock, self._connect() as conn:
+            conn.execute(
+                "DELETE FROM api_keys WHERE id = ? AND owner = ?",
+                (key_id, owner)
+            )
+            conn.commit()
+
+    def update_api_key(self, key_id: int, owner: str, updates: Dict):
+        fields = ", ".join(f"{k}=?" for k in updates)
+        values = list(updates.values()) + [key_id, owner]
+
+        with _lock, self._connect() as conn:
+            conn.execute(
+                f"UPDATE api_keys SET {fields} WHERE id=? AND owner=?",
+                values
+            )
+            conn.commit()
+
+    # -------- CASES --------
+
+    def create_case(self, data: Dict) -> Dict:
+        with _lock, self._connect() as conn:
+            cur = conn.execute(
+                "INSERT INTO cases (name, description, owner) VALUES (?, ?, ?)",
+                (data["name"], data.get("description"), data["owner"])
+            )
+            conn.commit()
+            data["id"] = cur.lastrowid
+            return data
+
+    def list

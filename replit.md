@@ -41,6 +41,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 - `/entities/*` - Entity management
 - `/relationships/*` - Relationship management
 
+## Database
+The application uses PostgreSQL for persistent storage. The database is automatically configured via the `DATABASE_URL` environment variable.
+
 ## Notes
-- Uses in-memory storage (data lost on restart)
+- Data persists across restarts via PostgreSQL
 - Tokens signed with HS256 algorithm
