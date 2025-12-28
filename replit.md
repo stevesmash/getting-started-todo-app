@@ -1,7 +1,7 @@
-# GhostLock Backend
+# GhostLock
 
 ## Overview
-GhostLock Backend is a FastAPI-based REST API for managing cases, entities, and relationships. It includes JWT-based authentication and API key management.
+GhostLock is a full-stack application for managing cases, entities, and relationships. It includes JWT-based authentication, API key management, and a modern dark-themed frontend.
 
 ## Project Structure
 ```
@@ -9,16 +9,21 @@ app/
 ├── __init__.py
 ├── config.py          # Application settings (env vars, CORS)
 ├── dependencies.py    # FastAPI dependencies
-├── main.py           # FastAPI app entrypoint
+├── main.py           # FastAPI app entrypoint (serves frontend + API)
 ├── schemas.py        # Pydantic models
-├── security.py       # JWT token handling
-├── storage.py        # In-memory data storage
+├── security.py       # Password hashing (bcrypt) & JWT handling
+├── storage.py        # PostgreSQL data storage
 └── routes/
     ├── apikeys.py    # API key management endpoints
     ├── auth.py       # Authentication (register/login)
     ├── cases.py      # Case management
     ├── entities.py   # Entity management
     └── relationships.py  # Relationship management
+
+static/
+├── index.html        # Frontend HTML
+├── style.css         # Dark theme styling
+└── app.js           # Frontend JavaScript (API integration)
 ```
 
 ## Running the Application
