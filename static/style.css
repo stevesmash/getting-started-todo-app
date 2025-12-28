@@ -1,0 +1,325 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f0f0f;
+    color: #e0e0e0;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid #333;
+    margin-bottom: 30px;
+}
+
+header h1 {
+    color: #00ff88;
+    font-size: 2rem;
+}
+
+#user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+#username-display {
+    color: #888;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.auth-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    padding: 10px 30px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #888;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background: #00ff88;
+    color: #000;
+    border-color: #00ff88;
+}
+
+.auth-form {
+    background: #1a1a1a;
+    padding: 30px;
+    border-radius: 10px;
+    max-width: 400px;
+}
+
+.auth-form h2 {
+    margin-bottom: 20px;
+    color: #00ff88;
+}
+
+.auth-form input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    background: #0f0f0f;
+    border: 1px solid #333;
+    border-radius: 5px;
+    color: #e0e0e0;
+    font-size: 1rem;
+}
+
+.auth-form input:focus {
+    outline: none;
+    border-color: #00ff88;
+}
+
+.auth-form button {
+    width: 100%;
+    padding: 12px;
+    background: #00ff88;
+    border: none;
+    border-radius: 5px;
+    color: #000;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.auth-form button:hover {
+    background: #00cc6a;
+}
+
+.error {
+    color: #ff4444;
+    margin-top: 10px;
+}
+
+.success {
+    color: #00ff88;
+    margin-top: 10px;
+}
+
+.dashboard-nav {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.nav-btn {
+    padding: 10px 25px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #888;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.2s;
+}
+
+.nav-btn.active {
+    background: #00ff88;
+    color: #000;
+    border-color: #00ff88;
+}
+
+.nav-btn:hover:not(.active) {
+    border-color: #00ff88;
+    color: #00ff88;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.section-header h2 {
+    color: #00ff88;
+}
+
+.section-header button {
+    padding: 10px 20px;
+    background: #00ff88;
+    border: none;
+    border-radius: 5px;
+    color: #000;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.list {
+    display: grid;
+    gap: 15px;
+}
+
+.list-item {
+    background: #1a1a1a;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #333;
+}
+
+.list-item h3 {
+    color: #00ff88;
+    margin-bottom: 10px;
+}
+
+.list-item p {
+    color: #888;
+    margin-bottom: 5px;
+}
+
+.list-item .meta {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.list-item .actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.list-item .actions button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-delete {
+    background: #ff4444;
+    color: #fff;
+}
+
+.btn-edit {
+    background: #333;
+    color: #e0e0e0;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #1a1a1a;
+    padding: 30px;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 500px;
+    position: relative;
+}
+
+.modal-content h3 {
+    color: #00ff88;
+    margin-bottom: 20px;
+}
+
+.close {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 1.5rem;
+    color: #888;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.modal-content input,
+.modal-content textarea,
+.modal-content select {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    background: #0f0f0f;
+    border: 1px solid #333;
+    border-radius: 5px;
+    color: #e0e0e0;
+    font-size: 1rem;
+}
+
+.modal-content textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.modal-content button {
+    width: 100%;
+    padding: 12px;
+    background: #00ff88;
+    border: none;
+    border-radius: 5px;
+    color: #000;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.key-value {
+    background: #0f0f0f;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: monospace;
+    color: #00ff88;
+    word-break: break-all;
+}
+
+.status-active {
+    color: #00ff88;
+}
+
+.status-inactive {
+    color: #ff4444;
+}
+
+@media (max-width: 600px) {
+    .auth-form {
+        max-width: 100%;
+    }
+    
+    .dashboard-nav {
+        flex-direction: column;
+    }
+    
+    .nav-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
