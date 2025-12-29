@@ -1,0 +1,107 @@
+import time
+import requests
+
+from app.schemas import EntityCreate, RelationshipCreate
+from app.storage import store
+from app.transforms.keys import get_api_key
+
+
+def run_domain_transforms(entity, owner: str) -> dict:
+    nodes = []
+    edges = []
+
+    api_key = get_api_key(owner, "URLSCAN_API_KEY")
+    if not api_key:
+        return {
+            "nodes": [],
+            "edges": [],
+            "message": "Missing URLSCAN_API_KEY in API vault",
+        }
+
+    submit = requests.post(
+        "https://urlscan.io/api/v1/scan/",
+        headers={
+            "API-Key": api_key,
+            "Content-Type": "application/json",
+        },
+        json={
+            "url": f"http://{entity.name}",
+            "visibility": "private",
+        },
+        timeout=20,
+    )
+    submit.raise_for_status()
+    submit_data = submit.json()
+    uuid = submit_data.get("uuid")
+
+    if not uuid:
+        return {
+            "nodes": [],
+            "edges": [],
+            "message": "urlscan submission failed",
+        }
+
+    time.sleep(5)
+
+    result = requests.get(
+        f"https://urlscan.io/api/v1/result/{uuid}/",
+        timeout=20,
+    )
+    result.raise_for_status()
+    data = result.json()
+
+    screenshot_url = data.get("task", {}).get("screenshotURL")
+
+    ips = set()
+    for entry in data.get("lists", {}).get("ips", []):
+        ips.add(entry)
+
+    if screenshot_url:
+        screenshot_ent = store.create_entity(
+            owner=owner,
+            payload=EntityCreate(
+                case_id=entity.case_id,
+                name="Website Screenshot",
+                kind="screenshot",
+                description=screenshot_url,
+            ),
+        )
+        nodes.append(screenshot_ent)
+
+        edges.append(
+            store.create_relationship(
+                owner=owner,
+                payload=RelationshipCreate(
+                    source_entity_id=entity.id,
+                    target_entity_id=screenshot_ent.id,
+                    relation="visualized_as",
+                ),
+            )
+        )
+
+    for ip in ips:
+        ip_ent = store.create_entity(
+            owner=owner,
+            payload=EntityCreate(
+                case_id=entity.case_id,
+                name=ip,
+                kind="ip",
+            ),
+        )
+        nodes.append(ip_ent)
+
+        edges.append(
+            store.create_relationship(
+                owner=owner,
+                payload=RelationshipCreate(
+                    source_entity_id=entity.id,
+                    target_entity_id=ip_ent.id,
+                    relation="resolves_to",
+                ),
+            )
+        )
+
+    return {
+        "nodes": [n.dict() for n in nodes],
+        "edges": [e.dict() for e in edges],
+    }
