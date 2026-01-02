@@ -1,0 +1,262 @@
+0) What you’re building
+
+A new endpoint:
+
+POST /entities/{entity_id}/transforms/run
+
+It will:
+
+load the entity
+
+check entity.kind (ip, domain, url)
+
+call the right transform function
+
+create new entities + relationships via your store
+
+return { "nodes": [...], "edges": [...] } for the frontend
+
+1) Create a new folder for transforms
+
+In Replit file tree:
+
+app/transforms/
+
+Add these files:
+
+app/transforms/__init__.py
+
+app/transforms/dispatcher.py
+
+app/transforms/ip.py
+
+app/transforms/domain.py
+
+app/transforms/url.py
+
+2) Add a new router for transforms
+
+Create:
+
+app/routes/transforms.py
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.dependencies import get_current_user
+from app.schemas import UserPublic
+from app.storage import store
+from app.transforms.dispatcher import run_transforms
+
+router = APIRouter(prefix="/entities", tags=["transforms"])
+
+
+@router.post("/{entity_id}/transforms/run")
+def run_entity_transforms(entity_id: int, current_user: UserPublic = Depends(get_current_user)):
+    try:
+        entity = store.get_entity(owner=current_user.username, entity_id=entity_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Entity not found") from exc
+
+    # Run mapped transforms; returns graph delta
+    return run_transforms(entity=entity, owner=current_user.username)
+
+3) Register the router in app/main.py
+
+Open app/main.py and add the import + include_router.
+
+You currently include auth, apikeys, cases, entities, relationships. 
+
+main
+
+Edit app/main.py:
+
+from app.routes import apikeys, auth, cases, entities, relationships, transforms
+...
+app.include_router(transforms.router)
+
+4) Add the dispatcher
+
+Create:
+
+app/transforms/dispatcher.py
+
+from app.transforms.ip import run_ip_transforms
+from app.transforms.domain import run_domain_transforms
+from app.transforms.url import run_url_transforms
+
+
+def run_transforms(entity, owner: str) -> dict:
+    kind = (entity.kind or "").lower().strip()
+
+    if kind == "ip":
+        return run_ip_transforms(entity, owner)
+    if kind == "domain":
+        return run_domain_transforms(entity, owner)
+    if kind == "url":
+        return run_url_transforms(entity, owner)
+
+    return {"nodes": [], "edges": [], "message": f"No transforms for kind='{entity.kind}'"}
+
+5) IMPORTANT: How we read API keys (using your existing /apikeys)
+
+Your backend already stores API keys as objects with fields like name, key, active, owner. 
+
+apikeys
+
+ 
+
+storage
+
+So we’ll use ApiKey.name as the “provider key name”.
+
+Name your keys exactly like this in your Vault UI:
+
+VIRUSTOTAL_API_KEY
+
+URLSCAN_API_KEY
+
+ABUSEIPDB_API_KEY
+
+Then transforms can grab them by name.
+
+Create helper:
+
+app/transforms/keys.py
+
+from app.storage import store
+
+def get_api_key(owner: str, name: str) -> str | None:
+    keys = store.list_api_keys(owner=owner)
+    for k in keys:
+        if k.active and (k.name or "").strip().upper() == name.strip().upper():
+            return k.key
+    return None
+
+6) Implement ONE transform first (IP → AbuseIPDB)
+
+Create:
+
+app/transforms/ip.py
+
+import requests
+
+from app.schemas import EntityCreate, RelationshipCreate
+from app.storage import store
+from app.transforms.keys import get_api_key
+
+
+def run_ip_transforms(entity, owner: str) -> dict:
+    nodes = []
+    edges = []
+
+    abuse_key = get_api_key(owner, "ABUSEIPDB_API_KEY")
+
+    if not abuse_key:
+        return {
+            "nodes": [],
+            "edges": [],
+            "message": "Missing ABUSEIPDB_API_KEY in API vault",
+        }
+
+    r = requests.get(
+        "https://api.abuseipdb.com/api/v2/check",
+        headers={"Key": abuse_key, "Accept": "application/json"},
+        params={"ipAddress": entity.name, "maxAgeInDays": 90},
+        timeout=20,
+    )
+    r.raise_for_status()
+    data = r.json().get("data", {})
+
+    score = data.get("abuseConfidenceScore", 0)
+    country = data.get("countryCode") or "UNK"
+    isp = data.get("isp") or "Unknown ISP"
+
+    # Create threat entity
+    threat_ent = store.create_entity(
+        owner=owner,
+        payload=EntityCreate(
+            case_id=entity.case_id,
+            name=f"AbuseIPDB score={score}",
+            kind="threat",
+            description=f"country={country}, isp={isp}",
+        ),
+    )
+    nodes.append(threat_ent)
+
+    # Relationship: IP -> Threat
+    rel = store.create_relationship(
+        owner=owner,
+        payload=RelationshipCreate(
+            source_entity_id=entity.id,
+            target_entity_id=threat_ent.id,
+            relation="reported_as",
+        ),
+    )
+    edges.append(rel)
+
+    return {"nodes": [n.dict() for n in nodes], "edges": [e.dict() for e in edges]}
+
+
+✅ This is enough to prove transforms work end-to-end.
+
+7) Add placeholders for domain/url so nothing breaks
+
+app/transforms/domain.py
+
+def run_domain_transforms(entity, owner: str) -> dict:
+    return {"nodes": [], "edges": [], "message": "Domain transforms not implemented yet"}
+
+
+app/transforms/url.py
+
+def run_url_transforms(entity, owner: str) -> dict:
+    return {"nodes": [], "edges": [], "message": "URL transforms not implemented yet"}
+
+8) Install requests if needed
+
+Your requirements.txt doesn’t list requests. 
+
+requirements
+
+
+So add it.
+
+Update requirements.txt:
+
+requests==2.32.3
+
+
+Then in Replit shell:
+
+pip install -r requirements.txt
+
+9) Test it in Swagger
+
+Run the backend (Replit Run button or):
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+Go to:
+
+http://localhost:8000/docs
+
+Flow:
+
+POST /auth/register
+
+POST /auth/login → copy token
+
+Click Authorize in Swagger → Bearer <token>
+
+POST /cases/ create a case
+
+POST /entities/ create entity:
+
+kind: "ip"
+
+name: "8.8.8.8" (or your demo IP)
+
+POST /entities/{id}/transforms/run
+
+If it returns nodes/edges: you’re cooking.
