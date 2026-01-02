@@ -1,0 +1,198 @@
+In your GhostLock API Keys UI, create a key with:
+
+Name: URLSCAN_API_KEY
+
+Value: (your urlscan API key)
+
+Active: ✅
+
+⚠️ The name must match exactly or the transform won’t find it.
+
+2️⃣ Open this file (you already created it)
+
+📁 app/transforms/domain.py
+
+You currently have a placeholder.
+We’re replacing it.
+
+3️⃣ Paste THIS CODE (yes, right here, in Replit)
+import time
+import requests
+
+from app.schemas import EntityCreate, RelationshipCreate
+from app.storage import store
+from app.transforms.keys import get_api_key
+
+
+def run_domain_transforms(entity, owner: str) -> dict:
+    nodes = []
+    edges = []
+
+    api_key = get_api_key(owner, "URLSCAN_API_KEY")
+    if not api_key:
+        return {
+            "nodes": [],
+            "edges": [],
+            "message": "Missing URLSCAN_API_KEY in API vault",
+        }
+
+    # Step 1: submit scan
+    submit = requests.post(
+        "https://urlscan.io/api/v1/scan/",
+        headers={
+            "API-Key": api_key,
+            "Content-Type": "application/json",
+        },
+        json={
+            "url": f"http://{entity.name}",
+            "visibility": "private",
+        },
+        timeout=20,
+    )
+    submit.raise_for_status()
+    submit_data = submit.json()
+    uuid = submit_data.get("uuid")
+
+    if not uuid:
+        return {
+            "nodes": [],
+            "edges": [],
+            "message": "urlscan submission failed",
+        }
+
+    # Step 2: wait briefly for scan to finish (demo-safe delay)
+    time.sleep(5)
+
+    # Step 3: fetch results
+    result = requests.get(
+        f"https://urlscan.io/api/v1/result/{uuid}/",
+        timeout=20,
+    )
+    result.raise_for_status()
+    data = result.json()
+
+    # Screenshot URL
+    screenshot_url = data.get("task", {}).get("screenshotURL")
+
+    # IPs observed
+    ips = set()
+    for entry in data.get("lists", {}).get("ips", []):
+        ips.add(entry)
+
+    # Create screenshot entity
+    if screenshot_url:
+        screenshot_ent = store.create_entity(
+            owner=owner,
+            payload=EntityCreate(
+                case_id=entity.case_id,
+                name="Website Screenshot",
+                kind="screenshot",
+                description=screenshot_url,
+            ),
+        )
+        nodes.append(screenshot_ent)
+
+        edges.append(
+            store.create_relationship(
+                owner=owner,
+                payload=RelationshipCreate(
+                    source_entity_id=entity.id,
+                    target_entity_id=screenshot_ent.id,
+                    relation="visualized_as",
+                ),
+            )
+        )
+
+    # Create IP entities
+    for ip in ips:
+        ip_ent = store.create_entity(
+            owner=owner,
+            payload=EntityCreate(
+                case_id=entity.case_id,
+                name=ip,
+                kind="ip",
+            ),
+        )
+        nodes.append(ip_ent)
+
+        edges.append(
+            store.create_relationship(
+                owner=owner,
+                payload=RelationshipCreate(
+                    source_entity_id=entity.id,
+                    target_entity_id=ip_ent.id,
+                    relation="resolves_to",
+                ),
+            )
+        )
+
+    return {
+        "nodes": [n.dict() for n in nodes],
+        "edges": [e.dict() for e in edges],
+    }
+
+
+✅ Do not modify it yet
+This is demo-safe and free-tier friendly.
+
+4️⃣ Restart the backend (important)
+
+In Replit:
+
+Stop ▶️
+
+Start ▶️ again
+
+(or run)
+
+uvicorn app.main:app --reload
+
+5️⃣ Test it in Swagger (2 minutes)
+
+Go to:
+
+/docs
+
+Flow:
+
+Authorize with JWT
+
+Create a case
+
+Create entity:
+
+{
+  "case_id": 1,
+  "name": "example.com",
+  "kind": "domain"
+}
+
+
+Call:
+
+POST /entities/{id}/transforms/run
+
+You should see:
+
+Screenshot entity
+
+One or more IP entities
+
+Relationships auto-created
+
+If yes → you’re officially demo-dangerous 🔥
+
+6️⃣ What this gives you visually
+
+On the graph:
+
+Domain
+ ├── resolves_to → IP
+ └── visualized_as → Screenshot
+
+
+🎤 When you demo:
+
+“We even capture visual evidence of the live website automatically.”
+
+People eat that up.
