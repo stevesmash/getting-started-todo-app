@@ -212,6 +212,7 @@ async function runTransform(entityId, entityName, entityKind) {
     const btn = entityEl.querySelector('.btn-transform');
     const originalText = btn.textContent;
     
+    console.log(`Starting transform for entity ${entityId} (${entityName})`);
     btn.textContent = 'Running...';
     btn.disabled = true;
     
@@ -220,24 +221,30 @@ async function runTransform(entityId, entityName, entityKind) {
             method: 'POST'
         });
         
+        console.log(`Transform response status: ${response.status}`);
+        
         if (!response.ok) {
             const data = await response.json();
-            throw new Error(data.detail || data.message || 'Transform failed');
+            console.error('Transform error data:', data);
+            throw new Error(data.detail || data.message || `Server returned ${response.status}`);
         }
         
         const result = await response.json();
+        console.log('Transform result:', result);
         
-        if (result.message) {
+        if (result.message && !result.nodes?.length) {
             alert(result.message);
         } else {
             const nodeCount = result.nodes ? result.nodes.length : 0;
             const edgeCount = result.edges ? result.edges.length : 0;
-            alert(`Transform complete!\nCreated ${nodeCount} new entities and ${edgeCount} relationships.`);
+            let msg = `Transform complete!\nCreated ${nodeCount} new entities and ${edgeCount} relationships.`;
+            if (result.message) msg += `\n\nNote: ${result.message}`;
+            alert(msg);
         }
         
-        loadEntities();
-        loadRelationships();
+        await Promise.all([loadEntities(), loadRelationships()]);
     } catch (err) {
+        console.error('Transform execution failed:', err);
         alert('Transform error: ' + err.message);
     } finally {
         btn.textContent = originalText;
