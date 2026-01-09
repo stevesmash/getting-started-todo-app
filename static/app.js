@@ -181,19 +181,67 @@ async function loadEntities() {
             return;
         }
         
-        list.innerHTML = entities.map(e => `
-            <div class="list-item">
-                <h3>${escapeHtml(e.name)}</h3>
-                <p>Kind: ${escapeHtml(e.kind || 'N/A')}</p>
-                <p>${escapeHtml(e.description || 'No description')}</p>
-                <p class="meta">Case ID: ${e.case_id} | Entity ID: ${e.id}</p>
-                <div class="actions">
-                    <button class="btn-delete" onclick="deleteEntity(${e.id})">Delete</button>
+        const transformableKinds = ['ip', 'domain', 'url'];
+        
+        list.innerHTML = entities.map(e => {
+            const canTransform = transformableKinds.includes((e.kind || '').toLowerCase());
+            const transformBtn = canTransform 
+                ? `<button class="btn-transform" onclick="runTransform(${e.id}, '${escapeHtml(e.name)}', '${escapeHtml(e.kind)}')">Run Transform</button>`
+                : '';
+            
+            return `
+                <div class="list-item" id="entity-${e.id}">
+                    <h3>${escapeHtml(e.name)}</h3>
+                    <p>Kind: <span class="kind-badge">${escapeHtml(e.kind || 'N/A')}</span></p>
+                    <p>${escapeHtml(e.description || 'No description')}</p>
+                    <p class="meta">Case ID: ${e.case_id} | Entity ID: ${e.id}</p>
+                    <div class="actions">
+                        ${transformBtn}
+                        <button class="btn-delete" onclick="deleteEntity(${e.id})">Delete</button>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (err) {
         console.error('Error loading entities:', err);
+    }
+}
+
+async function runTransform(entityId, entityName, entityKind) {
+    const entityEl = document.getElementById(`entity-${entityId}`);
+    const btn = entityEl.querySelector('.btn-transform');
+    const originalText = btn.textContent;
+    
+    btn.textContent = 'Running...';
+    btn.disabled = true;
+    
+    try {
+        const response = await api(`/entities/${entityId}/transforms/run`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || data.message || 'Transform failed');
+        }
+        
+        const result = await response.json();
+        
+        if (result.message) {
+            alert(result.message);
+        } else {
+            const nodeCount = result.nodes ? result.nodes.length : 0;
+            const edgeCount = result.edges ? result.edges.length : 0;
+            alert(`Transform complete!\nCreated ${nodeCount} new entities and ${edgeCount} relationships.`);
+        }
+        
+        loadEntities();
+        loadRelationships();
+    } catch (err) {
+        alert('Transform error: ' + err.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
     }
 }
 
