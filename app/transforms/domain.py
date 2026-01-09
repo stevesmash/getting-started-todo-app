@@ -41,14 +41,25 @@ def run_domain_transforms(entity, owner: str) -> dict:
             "message": "urlscan submission failed",
         }
 
-    time.sleep(5)
-
-    result = requests.get(
-        f"https://urlscan.io/api/v1/result/{uuid}/",
-        timeout=20,
-    )
-    result.raise_for_status()
-    data = result.json()
+    data = None
+    for attempt in range(6):
+        time.sleep(10)
+        result = requests.get(
+            f"https://urlscan.io/api/v1/result/{uuid}/",
+            timeout=20,
+        )
+        if result.status_code == 200:
+            data = result.json()
+            break
+        if result.status_code != 404:
+            result.raise_for_status()
+    
+    if not data:
+        return {
+            "nodes": [],
+            "edges": [],
+            "message": f"URLScan result not ready after 60s. Check manually: https://urlscan.io/result/{uuid}/",
+        }
 
     screenshot_url = data.get("task", {}).get("screenshotURL")
 
