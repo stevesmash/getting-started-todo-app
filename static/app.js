@@ -140,6 +140,7 @@ async function loadSectionData(section) {
         case 'cases': await loadCases(); break;
         case 'entities': await loadEntities(); break;
         case 'relationships': await loadRelationships(); break;
+        case 'graph': await loadGraph(); break;
         case 'apikeys': await loadApiKeys(); break;
     }
 }
@@ -301,6 +302,110 @@ async function loadApiKeys() {
         `).join('');
     } catch (err) {
         console.error('Error loading API keys:', err);
+    }
+}
+
+let networkInstance = null;
+
+const kindColors = {
+    ip: '#4CAF50',
+    domain: '#2196F3',
+    url: '#FF9800',
+    threat: '#f44336',
+    screenshot: '#9C27B0',
+    person: '#00BCD4',
+    organization: '#795548'
+};
+
+async function loadGraph() {
+    try {
+        const [entitiesRes, relationshipsRes, casesRes] = await Promise.all([
+            api('/entities/'),
+            api('/relationships/'),
+            api('/cases/')
+        ]);
+        
+        const entities = await entitiesRes.json();
+        const relationships = await relationshipsRes.json();
+        const cases = await casesRes.json();
+        
+        const caseFilter = document.getElementById('graph-case-filter');
+        const currentValue = caseFilter.value;
+        caseFilter.innerHTML = '<option value="">All Cases</option>' +
+            cases.map(c => `<option value="${c.id}"${c.id == currentValue ? ' selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+        
+        let filteredEntities = entities;
+        let filteredRelationships = relationships;
+        
+        if (currentValue) {
+            const caseId = parseInt(currentValue);
+            filteredEntities = entities.filter(e => e.case_id === caseId);
+            const entityIds = new Set(filteredEntities.map(e => e.id));
+            filteredRelationships = relationships.filter(r => 
+                entityIds.has(r.source_entity_id) && entityIds.has(r.target_entity_id)
+            );
+        }
+        
+        const nodes = new vis.DataSet(filteredEntities.map(e => ({
+            id: e.id,
+            label: e.name,
+            title: `${e.kind || 'unknown'}\n${e.description || ''}`,
+            color: {
+                background: kindColors[(e.kind || '').toLowerCase()] || '#888',
+                border: '#333',
+                highlight: { background: '#00ff88', border: '#00ff88' }
+            },
+            font: { color: '#e0e0e0', size: 12 },
+            shape: 'dot',
+            size: 20
+        })));
+        
+        const edges = new vis.DataSet(filteredRelationships.map(r => ({
+            id: r.id,
+            from: r.source_entity_id,
+            to: r.target_entity_id,
+            label: r.relation,
+            arrows: 'to',
+            color: { color: '#555', highlight: '#00ff88' },
+            font: { color: '#888', size: 10, strokeWidth: 0 }
+        })));
+        
+        const container = document.getElementById('graph-container');
+        
+        if (networkInstance) {
+            networkInstance.destroy();
+        }
+        
+        const options = {
+            nodes: {
+                borderWidth: 2,
+                shadow: true
+            },
+            edges: {
+                width: 2,
+                smooth: { type: 'continuous' }
+            },
+            physics: {
+                stabilization: { iterations: 100 },
+                barnesHut: {
+                    gravitationalConstant: -3000,
+                    springLength: 150
+                }
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 100
+            }
+        };
+        
+        networkInstance = new vis.Network(container, { nodes, edges }, options);
+        
+        if (filteredEntities.length === 0) {
+            container.innerHTML = '<p style="color: #888; text-align: center; padding-top: 200px;">No entities to display. Create some entities first!</p>';
+        }
+        
+    } catch (err) {
+        console.error('Error loading graph:', err);
     }
 }
 

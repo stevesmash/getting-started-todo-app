@@ -333,6 +333,66 @@ header h1 {
     color: #ff4444;
 }
 
+#graph-container {
+    width: 100%;
+    height: 500px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 10px;
+}
+
+.graph-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.graph-controls select {
+    padding: 8px 15px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 5px;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+}
+
+.graph-controls button {
+    padding: 8px 15px;
+    background: #333;
+    border: none;
+    border-radius: 5px;
+    color: #e0e0e0;
+    cursor: pointer;
+}
+
+.graph-controls button:hover {
+    background: #444;
+}
+
+#graph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 15px;
+    padding: 10px;
+    background: #1a1a1a;
+    border-radius: 5px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #888;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
 @media (max-width: 600px) {
     .auth-form {
         max-width: 100%;
@@ -345,5 +405,9 @@ header h1 {
     .nav-btn {
         width: 100%;
         text-align: center;
+    }
+    
+    #graph-container {
+        height: 350px;
     }
 }
