@@ -26,7 +26,16 @@ def create_entity(payload: EntityCreate, current_user: UserPublic = Depends(get_
     """Create a new entity within an existing case."""
 
     try:
-        return store.create_entity(owner=current_user.username, payload=payload)
+        entity = store.create_entity(owner=current_user.username, payload=payload)
+        store.log_activity(
+            owner=current_user.username,
+            action="created",
+            resource_type="entity",
+            resource_id=entity.id,
+            resource_name=entity.name,
+            details=f"Type: {entity.kind}"
+        )
+        return entity
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -67,7 +76,15 @@ def delete_entity(entity_id: int, current_user: UserPublic = Depends(get_current
     """Delete an entity and any connected relationships."""
 
     try:
+        entity = store.get_entity(owner=current_user.username, entity_id=entity_id)
         store.delete_entity(owner=current_user.username, entity_id=entity_id)
+        store.log_activity(
+            owner=current_user.username,
+            action="deleted",
+            resource_type="entity",
+            resource_id=entity_id,
+            resource_name=entity.name
+        )
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -28,7 +28,18 @@ def create_relationship(
     """Create a relationship between two entities."""
 
     try:
-        return store.create_relationship(owner=current_user.username, payload=payload)
+        rel = store.create_relationship(owner=current_user.username, payload=payload)
+        source = store.get_entity(owner=current_user.username, entity_id=payload.source_entity_id)
+        target = store.get_entity(owner=current_user.username, entity_id=payload.target_entity_id)
+        store.log_activity(
+            owner=current_user.username,
+            action="created",
+            resource_type="relationship",
+            resource_id=rel.id,
+            resource_name=f"{source.name} -> {target.name}",
+            details=f"Relation: {rel.relation}"
+        )
+        return rel
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -79,7 +90,15 @@ def delete_relationship(
     """Delete a relationship by ID."""
 
     try:
+        rel = store.get_relationship(owner=current_user.username, relationship_id=relationship_id)
         store.delete_relationship(owner=current_user.username, relationship_id=relationship_id)
+        store.log_activity(
+            owner=current_user.username,
+            action="deleted",
+            resource_type="relationship",
+            resource_id=relationship_id,
+            resource_name=rel.relation
+        )
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

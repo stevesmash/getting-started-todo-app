@@ -1,6 +1,10 @@
 const API_BASE = '';
 let token = localStorage.getItem('token');
 
+let cachedCases = [];
+let cachedEntities = [];
+let cachedRelationships = [];
+
 async function api(endpoint, options = {}) {
     const headers = {
         'Content-Type': 'application/json',
@@ -53,6 +57,64 @@ function showModal(id) {
         populateCaseSelect();
     } else if (id === 'relationship-modal') {
         populateEntitySelects();
+    } else if (id === 'import-modal') {
+        populateImportCaseSelect();
+    }
+}
+
+function populateImportCaseSelect() {
+    const select = document.getElementById('import-case-id');
+    select.innerHTML = '<option value="">Select a case...</option>' +
+        cachedCases.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+}
+
+async function handleImport(e) {
+    e.preventDefault();
+    const caseId = document.getElementById('import-case-id').value;
+    const fileInput = document.getElementById('import-file');
+    const statusEl = document.getElementById('import-status');
+    const file = fileInput.files[0];
+    
+    if (!caseId || !file) {
+        statusEl.innerHTML = '<span class="error">Please select a case and file</span>';
+        return;
+    }
+    
+    statusEl.innerHTML = '<span class="loading">Importing...</span>';
+    
+    const formData = new FormData();
+    formData.append('case_id', caseId);
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch('/import/entities', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.detail || 'Import failed');
+        }
+        
+        let statusHtml = `<span class="success">${result.message}</span>`;
+        if (result.errors && result.errors.length > 0) {
+            statusHtml += '<div class="import-errors">' +
+                result.errors.slice(0, 5).map(e => `<div>${escapeHtml(e)}</div>`).join('') +
+                (result.errors.length > 5 ? `<div>...and ${result.errors.length - 5} more errors</div>` : '') +
+                '</div>';
+        }
+        statusEl.innerHTML = statusHtml;
+        
+        fileInput.value = '';
+        await loadEntities();
+        
+    } catch (err) {
+        statusEl.innerHTML = `<span class="error">${escapeHtml(err.message)}</span>`;
     }
 }
 
@@ -132,80 +194,266 @@ function showDashboard() {
     document.getElementById('dashboard').classList.remove('hidden');
     document.getElementById('user-info').classList.remove('hidden');
     document.getElementById('username-display').textContent = localStorage.getItem('username');
-    loadCases();
+    loadDashboardStats();
 }
 
 async function loadSectionData(section) {
     switch (section) {
+        case 'dashboard': await loadDashboardStats(); break;
         case 'cases': await loadCases(); break;
         case 'entities': await loadEntities(); break;
         case 'relationships': await loadRelationships(); break;
         case 'graph': await loadGraph(); break;
+        case 'timeline': await loadTimeline(); break;
         case 'apikeys': await loadApiKeys(); break;
     }
+}
+
+async function loadDashboardStats() {
+    try {
+        const [casesRes, entitiesRes, relsRes, keysRes, timelineRes] = await Promise.all([
+            api('/cases/'),
+            api('/entities/'),
+            api('/relationships/'),
+            api('/apikeys/'),
+            api('/timeline/?limit=5')
+        ]);
+        
+        const cases = await casesRes.json();
+        const entities = await entitiesRes.json();
+        const relationships = await relsRes.json();
+        const apikeys = await keysRes.json();
+        const timeline = await timelineRes.json();
+        
+        cachedCases = cases;
+        cachedEntities = entities;
+        cachedRelationships = relationships;
+        
+        document.getElementById('stat-cases').textContent = cases.length;
+        document.getElementById('stat-entities').textContent = entities.length;
+        document.getElementById('stat-relationships').textContent = relationships.length;
+        document.getElementById('stat-apikeys').textContent = apikeys.length;
+        
+        renderEntityTypeChart(entities);
+        renderRecentActivity(timeline);
+        
+    } catch (err) {
+        console.error('Error loading dashboard stats:', err);
+    }
+}
+
+function renderEntityTypeChart(entities) {
+    const typeCounts = {};
+    entities.forEach(e => {
+        const kind = (e.kind || 'unknown').toLowerCase();
+        typeCounts[kind] = (typeCounts[kind] || 0) + 1;
+    });
+    
+    const container = document.getElementById('entity-type-chart');
+    const total = entities.length || 1;
+    
+    if (Object.keys(typeCounts).length === 0) {
+        container.innerHTML = '<p style="color: #666; text-align: center;">No entities yet</p>';
+        return;
+    }
+    
+    const colors = {
+        ip: '#00ff88',
+        domain: '#00bfff',
+        url: '#ffa500',
+        threat: '#ff3366',
+        screenshot: '#9c27b0',
+        person: '#00ced1',
+        organization: '#cd853f',
+        email: '#ffdd57',
+        hash: '#a855f7'
+    };
+    
+    container.innerHTML = Object.entries(typeCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([kind, count]) => {
+            const pct = Math.round((count / total) * 100);
+            const color = colors[kind] || '#666';
+            return `
+                <div class="chart-bar">
+                    <div class="bar-label">
+                        <span class="bar-kind" style="color: ${color}">${kind}</span>
+                        <span class="bar-count">${count}</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: ${pct}%; background: ${color}"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+}
+
+function renderRecentActivity(activities) {
+    const container = document.getElementById('recent-activity');
+    
+    if (activities.length === 0) {
+        container.innerHTML = '<p style="color: #666;">No recent activity</p>';
+        return;
+    }
+    
+    const actionIcons = {
+        created: '➕',
+        deleted: '🗑️',
+        updated: '✏️',
+        transform: '🔄'
+    };
+    
+    container.innerHTML = activities.map(a => {
+        const icon = actionIcons[a.action] || '📋';
+        const date = new Date(a.created_at);
+        const timeAgo = getTimeAgo(date);
+        
+        return `
+            <div class="recent-item">
+                <span class="recent-icon">${icon}</span>
+                <span class="recent-text">${escapeHtml(a.action)} ${escapeHtml(a.resource_type)}: ${escapeHtml(a.resource_name || 'N/A')}</span>
+                <span class="recent-time">${timeAgo}</span>
+            </div>
+        `;
+    }).join('');
 }
 
 async function loadCases() {
     try {
         const response = await api('/cases/');
-        const cases = await response.json();
-        const list = document.getElementById('cases-list');
-        
-        if (cases.length === 0) {
-            list.innerHTML = '<p style="color: #888;">No cases yet. Create your first case!</p>';
-            return;
-        }
-        
-        list.innerHTML = cases.map(c => `
-            <div class="list-item">
-                <h3>${escapeHtml(c.name)}</h3>
-                <p>${escapeHtml(c.description || 'No description')}</p>
-                <p class="meta">ID: ${c.id}</p>
-                <div class="actions">
-                    <button class="btn-delete" onclick="deleteCase(${c.id})">Delete</button>
-                </div>
-            </div>
-        `).join('');
+        cachedCases = await response.json();
+        renderCases(cachedCases);
+        updateEntityCaseFilter();
     } catch (err) {
         console.error('Error loading cases:', err);
     }
 }
 
+function renderCases(cases) {
+    const list = document.getElementById('cases-list');
+    
+    if (cases.length === 0) {
+        list.innerHTML = '<p style="color: #888;">No cases found.</p>';
+        return;
+    }
+    
+    list.innerHTML = cases.map(c => `
+        <div class="list-item">
+            <h3>${escapeHtml(c.name)}</h3>
+            <p>${escapeHtml(c.description || 'No description')}</p>
+            <p class="meta">ID: ${c.id}</p>
+            <div class="actions">
+                <button class="btn-export" onclick="exportCase(${c.id}, 'json')">Export JSON</button>
+                <button class="btn-export" onclick="exportCase(${c.id}, 'csv')">Export CSV</button>
+                <button class="btn-delete" onclick="deleteCase(${c.id})">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function exportCase(caseId, format) {
+    try {
+        const response = await fetch(`/export/case/${caseId}?format=${format}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Export failed');
+        }
+        
+        const blob = await response.blob();
+        const filename = response.headers.get('Content-Disposition')?.split('filename=')[1] || `case_${caseId}_export.${format}`;
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        
+    } catch (err) {
+        alert('Export failed: ' + err.message);
+    }
+}
+
+function filterCases() {
+    const search = document.getElementById('cases-search').value.toLowerCase();
+    const filtered = cachedCases.filter(c => 
+        c.name.toLowerCase().includes(search) ||
+        (c.description || '').toLowerCase().includes(search)
+    );
+    renderCases(filtered);
+}
+
+function updateEntityCaseFilter() {
+    const select = document.getElementById('entities-case-filter');
+    if (!select) return;
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">All Cases</option>' +
+        cachedCases.map(c => `<option value="${c.id}"${c.id == currentValue ? ' selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+}
+
 async function loadEntities() {
     try {
         const response = await api('/entities/');
-        const entities = await response.json();
-        const list = document.getElementById('entities-list');
-        
-        if (entities.length === 0) {
-            list.innerHTML = '<p style="color: #888;">No entities yet. Create your first entity!</p>';
-            return;
-        }
-        
-        const transformableKinds = ['ip', 'domain', 'url'];
-        
-        list.innerHTML = entities.map(e => {
-            const canTransform = transformableKinds.includes((e.kind || '').toLowerCase());
-            const transformBtn = canTransform 
-                ? `<button class="btn-transform" onclick="runTransform(${e.id}, '${escapeHtml(e.name)}', '${escapeHtml(e.kind)}')">Run Transform</button>`
-                : '';
-            
-            return `
-                <div class="list-item" id="entity-${e.id}">
-                    <h3>${escapeHtml(e.name)}</h3>
-                    <p>Kind: <span class="kind-badge">${escapeHtml(e.kind || 'N/A')}</span></p>
-                    <p>${escapeHtml(e.description || 'No description')}</p>
-                    <p class="meta">Case ID: ${e.case_id} | Entity ID: ${e.id}</p>
-                    <div class="actions">
-                        ${transformBtn}
-                        <button class="btn-delete" onclick="deleteEntity(${e.id})">Delete</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        cachedEntities = await response.json();
+        renderEntities(cachedEntities);
     } catch (err) {
         console.error('Error loading entities:', err);
     }
+}
+
+function renderEntities(entities) {
+    const list = document.getElementById('entities-list');
+    
+    if (entities.length === 0) {
+        list.innerHTML = '<p style="color: #888;">No entities found.</p>';
+        return;
+    }
+    
+    const transformableKinds = ['ip', 'domain', 'url'];
+    
+    list.innerHTML = entities.map(e => {
+        const canTransform = transformableKinds.includes((e.kind || '').toLowerCase());
+        const transformBtn = canTransform 
+            ? `<button class="btn-transform" onclick="runTransform(${e.id}, '${escapeHtml(e.name)}', '${escapeHtml(e.kind)}')">Run Transform</button>`
+            : '';
+        
+        const caseName = cachedCases.find(c => c.id === e.case_id)?.name || `Case ${e.case_id}`;
+        
+        return `
+            <div class="list-item" id="entity-${e.id}">
+                <h3>${escapeHtml(e.name)}</h3>
+                <p>Kind: <span class="kind-badge kind-${(e.kind || '').toLowerCase()}">${escapeHtml(e.kind || 'N/A')}</span></p>
+                <p>${escapeHtml(e.description || 'No description')}</p>
+                <p class="meta">Case: ${escapeHtml(caseName)} | ID: ${e.id}</p>
+                <div class="actions">
+                    ${transformBtn}
+                    <button class="btn-delete" onclick="deleteEntity(${e.id})">Delete</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterEntities() {
+    const search = document.getElementById('entities-search').value.toLowerCase();
+    const caseFilter = document.getElementById('entities-case-filter').value;
+    const kindFilter = document.getElementById('entities-kind-filter').value.toLowerCase();
+    
+    const filtered = cachedEntities.filter(e => {
+        const matchesSearch = e.name.toLowerCase().includes(search) ||
+            (e.description || '').toLowerCase().includes(search);
+        const matchesCase = !caseFilter || e.case_id == caseFilter;
+        const matchesKind = !kindFilter || (e.kind || '').toLowerCase() === kindFilter;
+        return matchesSearch && matchesCase && matchesKind;
+    });
+    
+    renderEntities(filtered);
 }
 
 async function runTransform(entityId, entityName, entityKind) {
@@ -256,26 +504,54 @@ async function runTransform(entityId, entityName, entityKind) {
 async function loadRelationships() {
     try {
         const response = await api('/relationships/');
-        const rels = await response.json();
-        const list = document.getElementById('relationships-list');
+        cachedRelationships = await response.json();
+        renderRelationships(cachedRelationships);
+    } catch (err) {
+        console.error('Error loading relationships:', err);
+    }
+}
+
+function renderRelationships(rels) {
+    const list = document.getElementById('relationships-list');
+    
+    if (rels.length === 0) {
+        list.innerHTML = '<p style="color: #888;">No relationships found.</p>';
+        return;
+    }
+    
+    list.innerHTML = rels.map(r => {
+        const sourceEntity = cachedEntities.find(e => e.id === r.source_entity_id);
+        const targetEntity = cachedEntities.find(e => e.id === r.target_entity_id);
+        const sourceName = sourceEntity ? sourceEntity.name : `Entity ${r.source_entity_id}`;
+        const targetName = targetEntity ? targetEntity.name : `Entity ${r.target_entity_id}`;
         
-        if (rels.length === 0) {
-            list.innerHTML = '<p style="color: #888;">No relationships yet. Create your first relationship!</p>';
-            return;
-        }
-        
-        list.innerHTML = rels.map(r => `
+        return `
             <div class="list-item">
-                <h3>Entity ${r.source_entity_id} → ${escapeHtml(r.relation)} → Entity ${r.target_entity_id}</h3>
-                <p class="meta">Relationship ID: ${r.id}</p>
+                <h3>${escapeHtml(sourceName)} <span class="relation-arrow">→ ${escapeHtml(r.relation)} →</span> ${escapeHtml(targetName)}</h3>
+                <p class="meta">ID: ${r.id}</p>
                 <div class="actions">
                     <button class="btn-delete" onclick="deleteRelationship(${r.id})">Delete</button>
                 </div>
             </div>
-        `).join('');
-    } catch (err) {
-        console.error('Error loading relationships:', err);
-    }
+        `;
+    }).join('');
+}
+
+function filterRelationships() {
+    const search = document.getElementById('relationships-search').value.toLowerCase();
+    
+    const filtered = cachedRelationships.filter(r => {
+        const sourceEntity = cachedEntities.find(e => e.id === r.source_entity_id);
+        const targetEntity = cachedEntities.find(e => e.id === r.target_entity_id);
+        const sourceName = sourceEntity?.name || '';
+        const targetName = targetEntity?.name || '';
+        
+        return r.relation.toLowerCase().includes(search) ||
+            sourceName.toLowerCase().includes(search) ||
+            targetName.toLowerCase().includes(search);
+    });
+    
+    renderRelationships(filtered);
 }
 
 async function loadApiKeys() {
@@ -303,6 +579,67 @@ async function loadApiKeys() {
     } catch (err) {
         console.error('Error loading API keys:', err);
     }
+}
+
+async function loadTimeline() {
+    try {
+        const response = await api('/timeline/');
+        const activities = await response.json();
+        const list = document.getElementById('timeline-list');
+        
+        if (activities.length === 0) {
+            list.innerHTML = '<p style="color: #888;">No activity yet. Start creating cases and entities!</p>';
+            return;
+        }
+        
+        const actionIcons = {
+            created: '➕',
+            deleted: '🗑️',
+            updated: '✏️',
+            transform: '🔄'
+        };
+        
+        const resourceColors = {
+            case: '#00ff88',
+            entity: '#00bfff',
+            relationship: '#ffa500',
+            apikey: '#9c27b0'
+        };
+        
+        list.innerHTML = activities.map(a => {
+            const icon = actionIcons[a.action] || '📋';
+            const color = resourceColors[a.resource_type] || '#888';
+            const date = new Date(a.created_at);
+            const timeAgo = getTimeAgo(date);
+            
+            return `
+                <div class="timeline-item">
+                    <div class="timeline-icon" style="background: ${color}20; color: ${color}">${icon}</div>
+                    <div class="timeline-content">
+                        <div class="timeline-header">
+                            <span class="timeline-action">${escapeHtml(a.action)}</span>
+                            <span class="timeline-resource" style="color: ${color}">${escapeHtml(a.resource_type)}</span>
+                        </div>
+                        <div class="timeline-name">${escapeHtml(a.resource_name || `ID: ${a.resource_id}`)}</div>
+                        ${a.details ? `<div class="timeline-details">${escapeHtml(a.details)}</div>` : ''}
+                        <div class="timeline-time" title="${date.toLocaleString()}">${timeAgo}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('Error loading timeline:', err);
+    }
+}
+
+function getTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return date.toLocaleDateString();
 }
 
 let networkInstance = null;
@@ -712,6 +1049,57 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+document.addEventListener('keydown', function(e) {
+    if (!token) return;
+    
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+        return;
+    }
+    
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    const shortcuts = {
+        'd': 'dashboard',
+        'c': 'cases',
+        'e': 'entities',
+        'r': 'relationships',
+        'g': 'graph',
+        't': 'timeline',
+        'k': 'apikeys'
+    };
+    
+    if (shortcuts[e.key]) {
+        e.preventDefault();
+        const navBtns = document.querySelectorAll('.nav-btn');
+        const sections = ['dashboard', 'cases', 'entities', 'relationships', 'graph', 'timeline', 'apikeys'];
+        const idx = sections.indexOf(shortcuts[e.key]);
+        if (navBtns[idx]) {
+            navBtns.forEach(btn => btn.classList.remove('active'));
+            navBtns[idx].classList.add('active');
+        }
+        document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+        document.getElementById(`${shortcuts[e.key]}-section`).classList.remove('hidden');
+        loadSectionData(shortcuts[e.key]);
+    }
+    
+    if (e.key === 'n' && e.ctrlKey) {
+        e.preventDefault();
+        const activeSection = document.querySelector('.section:not(.hidden)');
+        if (activeSection) {
+            const sectionId = activeSection.id;
+            if (sectionId === 'cases-section') showModal('case-modal');
+            else if (sectionId === 'entities-section') showModal('entity-modal');
+            else if (sectionId === 'relationships-section') showModal('relationship-modal');
+            else if (sectionId === 'apikeys-section') showModal('apikey-modal');
+        }
+    }
+    
+    if (e.key === '?' && e.shiftKey) {
+        alert('Keyboard Shortcuts:\\n\\nd - Dashboard\\nc - Cases\\ne - Entities\\nr - Relationships\\ng - Graph\\nt - Timeline\\nk - API Keys\\nCtrl+N - New item\\nEsc - Close modal');
+    }
+});
 
 if (token) {
     showDashboard();

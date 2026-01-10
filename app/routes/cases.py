@@ -20,7 +20,15 @@ def list_cases(current_user: UserPublic = Depends(get_current_user)) -> list[Cas
 def create_case(payload: CaseCreate, current_user: UserPublic = Depends(get_current_user)) -> Case:
     """Create a new case owned by the current user."""
 
-    return store.create_case(owner=current_user.username, payload=payload)
+    case = store.create_case(owner=current_user.username, payload=payload)
+    store.log_activity(
+        owner=current_user.username,
+        action="created",
+        resource_type="case",
+        resource_id=case.id,
+        resource_name=case.name
+    )
+    return case
 
 
 @router.get("/{case_id}", response_model=Case)
@@ -56,7 +64,15 @@ def delete_case(case_id: int, current_user: UserPublic = Depends(get_current_use
     """Delete a case and its related entities/relationships."""
 
     try:
+        case = store.get_case(owner=current_user.username, case_id=case_id)
         store.delete_case(owner=current_user.username, case_id=case_id)
+        store.log_activity(
+            owner=current_user.username,
+            action="deleted",
+            resource_type="case",
+            resource_id=case_id,
+            resource_name=case.name
+        )
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

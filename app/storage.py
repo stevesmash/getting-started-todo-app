@@ -10,6 +10,7 @@ from threading import Lock
 from typing import List, Optional
 
 from app.schemas import (
+    ActivityLog,
     ApiKey,
     ApiKeyCreate,
     ApiKeyUpdate,
@@ -87,6 +88,19 @@ class PostgresStore:
                     target_entity_id INTEGER NOT NULL REFERENCES entities(id),
                     relation TEXT,
                     owner TEXT NOT NULL
+                )
+                """)
+
+                cur.execute("""
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id SERIAL PRIMARY KEY,
+                    action TEXT NOT NULL,
+                    resource_type TEXT NOT NULL,
+                    resource_id INTEGER,
+                    resource_name TEXT,
+                    details TEXT,
+                    owner TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
                 """)
 
@@ -388,6 +402,58 @@ class PostgresStore:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM relationships WHERE id = %s AND owner = %s", (relationship_id, owner))
             conn.commit()
+
+    # Activity log management ------------------------------------------------
+    def log_activity(
+        self,
+        owner: str,
+        action: str,
+        resource_type: str,
+        resource_id: Optional[int] = None,
+        resource_name: Optional[str] = None,
+        details: Optional[str] = None
+    ) -> ActivityLog:
+        with _lock, self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO activity_logs 
+                    (action, resource_type, resource_id, resource_name, details, owner) 
+                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id, created_at""",
+                    (action, resource_type, resource_id, resource_name, details, owner)
+                )
+                row = cur.fetchone()
+            conn.commit()
+            return ActivityLog(
+                id=row["id"],
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                resource_name=resource_name,
+                details=details,
+                owner=owner,
+                created_at=row["created_at"]
+            )
+
+    def list_activity_logs(self, owner: str, limit: int = 50) -> List[ActivityLog]:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT * FROM activity_logs WHERE owner = %s ORDER BY created_at DESC LIMIT %s",
+                    (owner, limit)
+                )
+                rows = cur.fetchall()
+                return [
+                    ActivityLog(
+                        id=r["id"],
+                        action=r["action"],
+                        resource_type=r["resource_type"],
+                        resource_id=r["resource_id"],
+                        resource_name=r["resource_name"],
+                        details=r["details"],
+                        owner=r["owner"],
+                        created_at=r["created_at"]
+                    ) for r in rows
+                ]
 
 
 store = PostgresStore()

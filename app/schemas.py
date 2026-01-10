@@ -139,3 +139,18 @@ class Relationship(RelationshipBase):
 
 class RelationshipUpdate(BaseModel):
     relation: Optional[str] = Field(None, min_length=1, max_length=100)
+
+
+# =========================
+# Activity Logs
+# =========================
+
+class ActivityLog(BaseModel):
+    id: int
+    action: str
+    resource_type: str
+    resource_id: Optional[int] = None
+    resource_name: Optional[str] = None
+    details: Optional[str] = None
+    owner: str
+    created_at: datetime

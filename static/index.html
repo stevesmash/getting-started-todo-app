@@ -43,17 +43,60 @@
 
         <div id="dashboard" class="hidden">
             <nav class="dashboard-nav">
-                <button class="nav-btn active" onclick="showSection('cases')">Cases</button>
+                <button class="nav-btn active" onclick="showSection('dashboard')">Dashboard</button>
+                <button class="nav-btn" onclick="showSection('cases')">Cases</button>
                 <button class="nav-btn" onclick="showSection('entities')">Entities</button>
                 <button class="nav-btn" onclick="showSection('relationships')">Relationships</button>
                 <button class="nav-btn" onclick="showSection('graph')">Graph</button>
+                <button class="nav-btn" onclick="showSection('timeline')">Timeline</button>
                 <button class="nav-btn" onclick="showSection('apikeys')">API Keys</button>
             </nav>
 
-            <section id="cases-section" class="section">
+            <section id="dashboard-section" class="section">
+                <div class="section-header">
+                    <h2>Dashboard</h2>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📁</div>
+                        <div class="stat-value" id="stat-cases">0</div>
+                        <div class="stat-label">Cases</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🔍</div>
+                        <div class="stat-value" id="stat-entities">0</div>
+                        <div class="stat-label">Entities</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🔗</div>
+                        <div class="stat-value" id="stat-relationships">0</div>
+                        <div class="stat-label">Relationships</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🔑</div>
+                        <div class="stat-value" id="stat-apikeys">0</div>
+                        <div class="stat-label">API Keys</div>
+                    </div>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="dashboard-panel">
+                        <h3>Entity Types</h3>
+                        <div id="entity-type-chart" class="chart-container"></div>
+                    </div>
+                    <div class="dashboard-panel">
+                        <h3>Recent Activity</h3>
+                        <div id="recent-activity" class="recent-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="cases-section" class="section hidden">
                 <div class="section-header">
                     <h2>Cases</h2>
                     <button onclick="showModal('case-modal')">+ New Case</button>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="cases-search" placeholder="Search cases..." oninput="filterCases()">
                 </div>
                 <div id="cases-list" class="list"></div>
             </section>
@@ -61,7 +104,27 @@
             <section id="entities-section" class="section hidden">
                 <div class="section-header">
                     <h2>Entities</h2>
-                    <button onclick="showModal('entity-modal')">+ New Entity</button>
+                    <div class="header-buttons">
+                        <button onclick="showModal('import-modal')">Import</button>
+                        <button onclick="showModal('entity-modal')">+ New Entity</button>
+                    </div>
+                </div>
+                <div class="search-filter-bar">
+                    <input type="text" id="entities-search" placeholder="Search entities..." oninput="filterEntities()">
+                    <select id="entities-case-filter" onchange="filterEntities()">
+                        <option value="">All Cases</option>
+                    </select>
+                    <select id="entities-kind-filter" onchange="filterEntities()">
+                        <option value="">All Types</option>
+                        <option value="ip">IP</option>
+                        <option value="domain">Domain</option>
+                        <option value="url">URL</option>
+                        <option value="threat">Threat</option>
+                        <option value="person">Person</option>
+                        <option value="organization">Organization</option>
+                        <option value="email">Email</option>
+                        <option value="hash">Hash</option>
+                    </select>
                 </div>
                 <div id="entities-list" class="list"></div>
             </section>
@@ -70,6 +133,9 @@
                 <div class="section-header">
                     <h2>Relationships</h2>
                     <button onclick="showModal('relationship-modal')">+ New Relationship</button>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="relationships-search" placeholder="Search relationships..." oninput="filterRelationships()">
                 </div>
                 <div id="relationships-list" class="list"></div>
             </section>
@@ -89,6 +155,14 @@
                     <div id="graph-container"></div>
                     <div id="graph-legend" class="graph-legend"></div>
                 </div>
+            </section>
+
+            <section id="timeline-section" class="section hidden">
+                <div class="section-header">
+                    <h2>Activity Timeline</h2>
+                    <button onclick="loadTimeline()">Refresh</button>
+                </div>
+                <div id="timeline-list" class="timeline"></div>
             </section>
 
             <section id="apikeys-section" class="section hidden">
@@ -147,6 +221,22 @@
                     <input type="text" id="apikey-name" placeholder="Key Name" required>
                     <textarea id="apikey-description" placeholder="Description"></textarea>
                     <button type="submit">Create</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="import-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="hideModal('import-modal')">&times;</span>
+                <h3>Import Entities</h3>
+                <form onsubmit="handleImport(event)">
+                    <select id="import-case-id" required></select>
+                    <div class="file-upload-area">
+                        <input type="file" id="import-file" accept=".csv,.json" required>
+                        <p class="file-hint">Accepts CSV or JSON files with columns: name, kind, description</p>
+                    </div>
+                    <div id="import-status" class="import-status"></div>
+                    <button type="submit">Import</button>
                 </form>
             </div>
         </div>

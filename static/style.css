@@ -240,10 +240,85 @@ header h1 {
 
 .kind-badge {
     background: #333;
-    padding: 3px 8px;
+    padding: 3px 10px;
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kind-badge.kind-ip { background: rgba(0, 255, 136, 0.2); color: #00ff88; }
+.kind-badge.kind-domain { background: rgba(0, 191, 255, 0.2); color: #00bfff; }
+.kind-badge.kind-url { background: rgba(255, 165, 0, 0.2); color: #ffa500; }
+.kind-badge.kind-threat { background: rgba(255, 51, 102, 0.2); color: #ff3366; }
+.kind-badge.kind-screenshot { background: rgba(156, 39, 176, 0.2); color: #9c27b0; }
+.kind-badge.kind-person { background: rgba(0, 206, 209, 0.2); color: #00ced1; }
+.kind-badge.kind-organization { background: rgba(139, 69, 19, 0.2); color: #cd853f; }
+.kind-badge.kind-email { background: rgba(255, 221, 87, 0.2); color: #ffdd57; }
+.kind-badge.kind-hash { background: rgba(168, 85, 247, 0.2); color: #a855f7; }
+
+.relation-arrow {
     color: #00ff88;
+    font-weight: 500;
+}
+
+.search-bar,
+.search-filter-bar {
+    margin-bottom: 20px;
+}
+
+.search-bar input,
+.search-filter-bar input {
+    width: 100%;
+    max-width: 400px;
+    padding: 12px 16px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #e0e0e0;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+.search-bar input:focus,
+.search-filter-bar input:focus {
+    outline: none;
+    border-color: #00ff88;
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.15);
+}
+
+.search-bar input::placeholder,
+.search-filter-bar input::placeholder {
+    color: #666;
+}
+
+.search-filter-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.search-filter-bar select {
+    padding: 12px 16px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.search-filter-bar select:hover {
+    border-color: #00ff88;
+}
+
+.search-filter-bar select:focus {
+    outline: none;
+    border-color: #00ff88;
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.15);
 }
 
 .modal {
@@ -569,6 +644,311 @@ div.vis-tooltip {
 .vis-button:hover {
     background-color: #444 !important;
     box-shadow: 0 0 10px rgba(0, 255, 136, 0.3) !important;
+}
+
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 15px;
+    padding: 16px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.timeline-item:hover {
+    border-color: #444;
+    transform: translateX(5px);
+}
+
+.timeline-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.timeline-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.timeline-header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.timeline-action {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #888;
+    letter-spacing: 0.5px;
+}
+
+.timeline-resource {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.timeline-name {
+    font-size: 1rem;
+    color: #e0e0e0;
+    font-weight: 500;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.timeline-details {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 6px;
+}
+
+.timeline-time {
+    font-size: 0.75rem;
+    color: #555;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.header-buttons button {
+    padding: 10px 20px;
+    background: #00ff88;
+    border: none;
+    border-radius: 5px;
+    color: #000;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.header-buttons button:first-child {
+    background: #333;
+    color: #e0e0e0;
+}
+
+.header-buttons button:first-child:hover {
+    background: #444;
+    color: #00ff88;
+}
+
+.file-upload-area {
+    margin: 15px 0;
+}
+
+.file-upload-area input[type="file"] {
+    width: 100%;
+    padding: 12px;
+    background: #0f0f0f;
+    border: 2px dashed #333;
+    border-radius: 8px;
+    color: #e0e0e0;
+    cursor: pointer;
+}
+
+.file-upload-area input[type="file"]:hover {
+    border-color: #00ff88;
+}
+
+.file-hint {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 8px;
+}
+
+.import-status {
+    margin: 15px 0;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.import-status .loading {
+    color: #00ff88;
+}
+
+.import-status .error {
+    color: #ff4444;
+}
+
+.import-status .success {
+    color: #00ff88;
+}
+
+.import-errors {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(255, 68, 68, 0.1);
+    border-radius: 5px;
+    font-size: 0.8rem;
+    color: #ff8888;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #1a1a1a 0%, #222 100%);
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 255, 136, 0.1);
+    border-color: #00ff88;
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #00ff88;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.dashboard-panel {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.dashboard-panel h3 {
+    color: #00ff88;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+}
+
+.chart-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.chart-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+}
+
+.bar-kind {
+    text-transform: capitalize;
+    font-weight: 500;
+}
+
+.bar-count {
+    color: #888;
+}
+
+.bar-track {
+    height: 8px;
+    background: #222;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.recent-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: #222;
+    border-radius: 8px;
+}
+
+.recent-icon {
+    font-size: 1.2rem;
+}
+
+.recent-text {
+    flex: 1;
+    font-size: 0.9rem;
+    color: #e0e0e0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recent-time {
+    font-size: 0.75rem;
+    color: #666;
+}
+
+.btn-export {
+    background: #333;
+    color: #00bfff;
+    border: 1px solid #00bfff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+}
+
+.btn-export:hover {
+    background: #00bfff;
+    color: #000;
 }
 
 @media (max-width: 600px) {

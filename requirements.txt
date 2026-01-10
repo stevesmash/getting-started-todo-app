@@ -5,3 +5,4 @@ pyjwt==2.10.0
 passlib[bcrypt]==1.7.4
 psycopg2-binary==2.9.11
 requests
+python-multipart
