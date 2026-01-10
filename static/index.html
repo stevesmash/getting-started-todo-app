@@ -82,16 +82,12 @@
                             <option value="">All Cases</option>
                         </select>
                         <button onclick="loadGraph()">Refresh</button>
+                        <button onclick="networkInstance && networkInstance.fit()">Fit View</button>
                     </div>
                 </div>
-                <div id="graph-container"></div>
-                <div id="graph-legend">
-                    <span class="legend-item"><span class="legend-color" style="background: #4CAF50;"></span> IP</span>
-                    <span class="legend-item"><span class="legend-color" style="background: #2196F3;"></span> Domain</span>
-                    <span class="legend-item"><span class="legend-color" style="background: #FF9800;"></span> URL</span>
-                    <span class="legend-item"><span class="legend-color" style="background: #f44336;"></span> Threat</span>
-                    <span class="legend-item"><span class="legend-color" style="background: #9C27B0;"></span> Screenshot</span>
-                    <span class="legend-item"><span class="legend-color" style="background: #888;"></span> Other</span>
+                <div class="graph-wrapper">
+                    <div id="graph-container"></div>
+                    <div id="graph-legend" class="graph-legend"></div>
                 </div>
             </section>
 

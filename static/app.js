@@ -307,15 +307,29 @@ async function loadApiKeys() {
 
 let networkInstance = null;
 
-const kindColors = {
-    ip: '#4CAF50',
-    domain: '#2196F3',
-    url: '#FF9800',
-    threat: '#f44336',
-    screenshot: '#9C27B0',
-    person: '#00BCD4',
-    organization: '#795548'
+const kindConfig = {
+    ip: { color: '#00ff88', shape: 'hexagon', icon: '🌐' },
+    domain: { color: '#00bfff', shape: 'diamond', icon: '🔗' },
+    url: { color: '#ffa500', shape: 'square', icon: '🔗' },
+    threat: { color: '#ff3366', shape: 'triangle', icon: '⚠️' },
+    screenshot: { color: '#9c27b0', shape: 'image', icon: '📷' },
+    person: { color: '#00ced1', shape: 'ellipse', icon: '👤' },
+    organization: { color: '#8b4513', shape: 'box', icon: '🏢' },
+    email: { color: '#ffdd57', shape: 'dot', icon: '✉️' },
+    hash: { color: '#a855f7', shape: 'star', icon: '#️⃣' }
 };
+
+function renderLegend() {
+    const legend = document.getElementById('graph-legend');
+    if (!legend) return;
+    
+    legend.innerHTML = Object.entries(kindConfig).map(([kind, cfg]) => `
+        <div class="legend-item">
+            <span class="legend-color" style="background: ${cfg.color}; box-shadow: 0 0 8px ${cfg.color}80;"></span>
+            <span class="legend-label">${kind.charAt(0).toUpperCase() + kind.slice(1)}</span>
+        </div>
+    `).join('');
+}
 
 async function loadGraph() {
     try {
@@ -346,28 +360,92 @@ async function loadGraph() {
             );
         }
         
-        const nodes = new vis.DataSet(filteredEntities.map(e => ({
-            id: e.id,
-            label: e.name,
-            title: `${e.kind || 'unknown'}\n${e.description || ''}`,
-            color: {
-                background: kindColors[(e.kind || '').toLowerCase()] || '#888',
-                border: '#333',
-                highlight: { background: '#00ff88', border: '#00ff88' }
-            },
-            font: { color: '#e0e0e0', size: 12 },
-            shape: 'dot',
-            size: 20
-        })));
+        renderLegend();
+        
+        const nodes = new vis.DataSet(filteredEntities.map(e => {
+            const kind = (e.kind || '').toLowerCase();
+            const cfg = kindConfig[kind] || { color: '#666', shape: 'dot' };
+            
+            return {
+                id: e.id,
+                label: e.name,
+                title: `<div style="background:#1a1a1a;padding:10px;border-radius:8px;border:1px solid ${cfg.color};max-width:250px;">
+                    <strong style="color:${cfg.color}">${e.kind || 'Unknown'}</strong><br>
+                    <span style="color:#e0e0e0">${e.name}</span><br>
+                    <small style="color:#888">${e.description || 'No description'}</small>
+                </div>`,
+                color: {
+                    background: cfg.color,
+                    border: cfg.color,
+                    highlight: { 
+                        background: '#ffffff', 
+                        border: cfg.color 
+                    },
+                    hover: {
+                        background: cfg.color,
+                        border: '#ffffff'
+                    }
+                },
+                font: { 
+                    color: '#ffffff', 
+                    size: 14,
+                    face: 'Inter, system-ui, sans-serif',
+                    strokeWidth: 3,
+                    strokeColor: '#000000'
+                },
+                shape: cfg.shape,
+                size: 25,
+                borderWidth: 3,
+                borderWidthSelected: 5,
+                shadow: {
+                    enabled: true,
+                    color: cfg.color + '60',
+                    size: 15,
+                    x: 0,
+                    y: 0
+                }
+            };
+        }));
         
         const edges = new vis.DataSet(filteredRelationships.map(r => ({
             id: r.id,
             from: r.source_entity_id,
             to: r.target_entity_id,
             label: r.relation,
-            arrows: 'to',
-            color: { color: '#555', highlight: '#00ff88' },
-            font: { color: '#888', size: 10, strokeWidth: 0 }
+            arrows: {
+                to: {
+                    enabled: true,
+                    scaleFactor: 0.8,
+                    type: 'arrow'
+                }
+            },
+            color: { 
+                color: '#444444',
+                highlight: '#00ff88',
+                hover: '#00ff88',
+                opacity: 0.8
+            },
+            font: { 
+                color: '#888888', 
+                size: 11,
+                face: 'Inter, system-ui, sans-serif',
+                strokeWidth: 2,
+                strokeColor: '#000000',
+                align: 'middle'
+            },
+            width: 2,
+            hoverWidth: 3,
+            selectionWidth: 4,
+            smooth: {
+                enabled: true,
+                type: 'curvedCW',
+                roundness: 0.15
+            },
+            shadow: {
+                enabled: true,
+                color: 'rgba(0,0,0,0.3)',
+                size: 5
+            }
         })));
         
         const container = document.getElementById('graph-container');
@@ -376,37 +454,112 @@ async function loadGraph() {
             networkInstance.destroy();
         }
         
+        if (filteredEntities.length === 0) {
+            container.innerHTML = `
+                <div class="graph-empty">
+                    <div class="empty-icon">🔍</div>
+                    <h3>No Entities Found</h3>
+                    <p>Create some entities to see them visualized here</p>
+                </div>
+            `;
+            return;
+        }
+        
         const options = {
             nodes: {
-                borderWidth: 2,
-                shadow: true
+                borderWidth: 3,
+                shadow: true,
+                scaling: {
+                    min: 20,
+                    max: 40
+                }
             },
             edges: {
                 width: 2,
-                smooth: { type: 'continuous' }
+                shadow: true
             },
             physics: {
-                stabilization: { iterations: 100 },
+                enabled: true,
+                stabilization: { 
+                    enabled: true,
+                    iterations: 150,
+                    updateInterval: 25
+                },
                 barnesHut: {
-                    gravitationalConstant: -3000,
-                    springLength: 150
+                    gravitationalConstant: -4000,
+                    centralGravity: 0.3,
+                    springLength: 120,
+                    springConstant: 0.04,
+                    damping: 0.09,
+                    avoidOverlap: 0.5
                 }
             },
             interaction: {
                 hover: true,
-                tooltipDelay: 100
+                tooltipDelay: 50,
+                hideEdgesOnDrag: true,
+                hideEdgesOnZoom: true,
+                keyboard: {
+                    enabled: true
+                },
+                navigationButtons: true,
+                zoomView: true
+            },
+            layout: {
+                improvedLayout: true,
+                randomSeed: 42
             }
         };
         
         networkInstance = new vis.Network(container, { nodes, edges }, options);
         
-        if (filteredEntities.length === 0) {
-            container.innerHTML = '<p style="color: #888; text-align: center; padding-top: 200px;">No entities to display. Create some entities first!</p>';
-        }
+        networkInstance.on('click', function(params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const entity = filteredEntities.find(e => e.id === nodeId);
+                if (entity) {
+                    showEntityDetails(entity);
+                }
+            }
+        });
+        
+        networkInstance.on('stabilizationProgress', function(params) {
+            const progress = Math.round((params.iterations / params.total) * 100);
+            container.style.opacity = 0.3 + (progress / 100) * 0.7;
+        });
+        
+        networkInstance.on('stabilizationIterationsDone', function() {
+            container.style.opacity = 1;
+        });
         
     } catch (err) {
         console.error('Error loading graph:', err);
     }
+}
+
+function showEntityDetails(entity) {
+    const kind = (entity.kind || '').toLowerCase();
+    const cfg = kindConfig[kind] || { color: '#666' };
+    
+    const existingPopup = document.querySelector('.entity-popup');
+    if (existingPopup) existingPopup.remove();
+    
+    const popup = document.createElement('div');
+    popup.className = 'entity-popup';
+    popup.innerHTML = `
+        <div class="popup-header" style="border-color: ${cfg.color}">
+            <span class="popup-type" style="color: ${cfg.color}">${entity.kind || 'Unknown'}</span>
+            <button class="popup-close" onclick="this.closest('.entity-popup').remove()">×</button>
+        </div>
+        <div class="popup-body">
+            <h3>${escapeHtml(entity.name)}</h3>
+            <p>${escapeHtml(entity.description || 'No description')}</p>
+            <div class="popup-meta">ID: ${entity.id} | Case: ${entity.case_id}</div>
+        </div>
+    `;
+    document.getElementById('graph-section').appendChild(popup);
+    
+    setTimeout(() => popup.classList.add('visible'), 10);
 }
 
 async function createCase(e) {
