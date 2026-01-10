@@ -154,3 +154,22 @@ class ActivityLog(BaseModel):
     details: Optional[str] = None
     owner: str
     created_at: datetime
+
+
+# =========================
+# Comments
+# =========================
+
+class CommentBase(BaseModel):
+    entity_id: int
+    text: str = Field(..., min_length=1, max_length=2000)
+
+
+class CommentCreate(CommentBase):
+    pass
+
+
+class Comment(CommentBase):
+    id: int
+    owner: str
+    created_at: datetime

@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.config import get_settings
-from app.routes import apikeys, auth, cases, entities, import_export, relationships, timeline, transforms
+from app.routes import apikeys, auth, cases, comments, entities, import_export, relationships, timeline, transforms
 from app.schemas import HealthResponse
 
 settings = get_settings()
@@ -38,6 +38,7 @@ def health() -> HealthResponse:
 app.include_router(auth.router)
 app.include_router(apikeys.router)
 app.include_router(cases.router)
+app.include_router(comments.router)
 app.include_router(entities.router)
 app.include_router(import_export.router)
 app.include_router(import_export.export_router)

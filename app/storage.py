@@ -104,6 +104,16 @@ class PostgresStore:
                 )
                 """)
 
+                cur.execute("""
+                CREATE TABLE IF NOT EXISTS comments (
+                    id SERIAL PRIMARY KEY,
+                    entity_id INTEGER NOT NULL,
+                    text TEXT NOT NULL,
+                    owner TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """)
+
             conn.commit()
 
     # User management -----------------------------------------------------
@@ -454,6 +464,51 @@ class PostgresStore:
                         created_at=r["created_at"]
                     ) for r in rows
                 ]
+
+    # Comments management ------------------------------------------------
+    def create_comment(self, owner: str, payload: "CommentCreate") -> "Comment":
+        from app.schemas import Comment
+        with _lock, self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO comments (entity_id, text, owner)
+                    VALUES (%s, %s, %s) RETURNING id, created_at""",
+                    (payload.entity_id, payload.text, owner)
+                )
+                row = cur.fetchone()
+            conn.commit()
+            return Comment(
+                id=row["id"],
+                entity_id=payload.entity_id,
+                text=payload.text,
+                owner=owner,
+                created_at=row["created_at"]
+            )
+
+    def list_comments(self, owner: str, entity_id: int) -> List["Comment"]:
+        from app.schemas import Comment
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT * FROM comments WHERE owner = %s AND entity_id = %s ORDER BY created_at DESC",
+                    (owner, entity_id)
+                )
+                rows = cur.fetchall()
+                return [
+                    Comment(
+                        id=r["id"],
+                        entity_id=r["entity_id"],
+                        text=r["text"],
+                        owner=r["owner"],
+                        created_at=r["created_at"]
+                    ) for r in rows
+                ]
+
+    def delete_comment(self, owner: str, comment_id: int) -> None:
+        with _lock, self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM comments WHERE id = %s AND owner = %s", (comment_id, owner))
+            conn.commit()
 
 
 store = PostgresStore()

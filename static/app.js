@@ -432,6 +432,7 @@ function renderEntities(entities) {
                 <p>${escapeHtml(e.description || 'No description')}</p>
                 <p class="meta">Case: ${escapeHtml(caseName)} | ID: ${e.id}</p>
                 <div class="actions">
+                    <button class="btn-view" onclick="showEntityDetail(${e.id})">View Details</button>
                     ${transformBtn}
                     <button class="btn-delete" onclick="deleteEntity(${e.id})">Delete</button>
                 </div>
@@ -985,6 +986,123 @@ async function deleteCase(id) {
         loadCases();
     } catch (err) {
         console.error('Error deleting case:', err);
+    }
+}
+
+async function showEntityDetail(entityId) {
+    const entity = cachedEntities.find(e => e.id === entityId);
+    if (!entity) return;
+    
+    const caseName = cachedCases.find(c => c.id === entity.case_id)?.name || `Case ${entity.case_id}`;
+    
+    const relatedRels = cachedRelationships.filter(
+        r => r.source_id === entityId || r.target_id === entityId
+    );
+    
+    const relatedEntities = relatedRels.map(r => {
+        const otherId = r.source_id === entityId ? r.target_id : r.source_id;
+        const otherEntity = cachedEntities.find(e => e.id === otherId);
+        const direction = r.source_id === entityId ? 'outgoing' : 'incoming';
+        return { relation: r.relation, entity: otherEntity, direction };
+    }).filter(r => r.entity);
+    
+    let comments = [];
+    try {
+        const response = await api(`/comments/entity/${entityId}`);
+        comments = await response.json();
+    } catch (err) {
+        console.error('Error loading comments:', err);
+    }
+    
+    const kindColors = {
+        ip: '#00ff88', domain: '#00bfff', url: '#ffa500', threat: '#ff3366',
+        screenshot: '#9c27b0', person: '#00ced1', organization: '#cd853f',
+        email: '#ffdd57', hash: '#a855f7'
+    };
+    const color = kindColors[(entity.kind || '').toLowerCase()] || '#888';
+    
+    let html = `
+        <div class="entity-detail">
+            <div class="entity-header" style="border-left: 4px solid ${color};">
+                <h2>${escapeHtml(entity.name)}</h2>
+                <span class="kind-badge kind-${(entity.kind || '').toLowerCase()}">${escapeHtml(entity.kind || 'Unknown')}</span>
+            </div>
+            <div class="detail-grid">
+                <div class="detail-section">
+                    <h4>Information</h4>
+                    <div class="detail-row"><label>ID:</label><span>${entity.id}</span></div>
+                    <div class="detail-row"><label>Case:</label><span>${escapeHtml(caseName)}</span></div>
+                    <div class="detail-row"><label>Description:</label><span>${escapeHtml(entity.description || 'No description')}</span></div>
+                </div>
+                <div class="detail-section">
+                    <h4>Related Entities (${relatedEntities.length})</h4>
+                    <div class="related-list">
+                        ${relatedEntities.length === 0 ? '<p class="no-data">No relationships found</p>' : 
+                        relatedEntities.map(r => `
+                            <div class="related-item ${r.direction}">
+                                <span class="rel-arrow">${r.direction === 'outgoing' ? '→' : '←'}</span>
+                                <span class="rel-type">${escapeHtml(r.relation)}</span>
+                                <span class="rel-entity" onclick="showEntityDetail(${r.entity.id})">${escapeHtml(r.entity.name)}</span>
+                                <span class="kind-badge kind-${(r.entity.kind || '').toLowerCase()}">${escapeHtml(r.entity.kind)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="comments-section">
+                <h4>Notes & Comments (${comments.length})</h4>
+                <div class="comment-form">
+                    <textarea id="new-comment-text" placeholder="Add a note or comment..."></textarea>
+                    <button onclick="addComment(${entity.id})">Add Comment</button>
+                </div>
+                <div class="comments-list" id="comments-list-${entity.id}">
+                    ${comments.length === 0 ? '<p class="no-data">No comments yet</p>' :
+                    comments.map(c => `
+                        <div class="comment-item">
+                            <div class="comment-text">${escapeHtml(c.text)}</div>
+                            <div class="comment-meta">
+                                <span>${getTimeAgo(new Date(c.created_at))}</span>
+                                <button class="btn-small btn-delete" onclick="deleteComment(${c.id}, ${entity.id})">Delete</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="detail-actions">
+                <button class="btn-transform" onclick="hideModal('entity-detail-modal'); runTransform(${entity.id}, '${escapeHtml(entity.name)}', '${escapeHtml(entity.kind)}')">Run Transform</button>
+                <button class="btn-delete" onclick="hideModal('entity-detail-modal'); deleteEntity(${entity.id})">Delete Entity</button>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('entity-detail-content').innerHTML = html;
+    showModal('entity-detail-modal');
+}
+
+async function addComment(entityId) {
+    const textEl = document.getElementById('new-comment-text');
+    const text = textEl.value.trim();
+    if (!text) return;
+    
+    try {
+        await api('/comments/', {
+            method: 'POST',
+            body: JSON.stringify({ entity_id: entityId, text })
+        });
+        textEl.value = '';
+        showEntityDetail(entityId);
+    } catch (err) {
+        console.error('Error adding comment:', err);
+    }
+}
+
+async function deleteComment(commentId, entityId) {
+    if (!confirm('Delete this comment?')) return;
+    try {
+        await api(`/comments/${commentId}`, { method: 'DELETE' });
+        showEntityDetail(entityId);
+    } catch (err) {
+        console.error('Error deleting comment:', err);
     }
 }
 
