@@ -4,10 +4,12 @@
 GhostLock is a full-stack OSINT/threat intelligence platform for managing cases, entities, and relationships. It includes JWT-based authentication, API key management, external service transforms (AbuseIPDB, URLScan), interactive graph visualization, and a modern dark-themed frontend.
 
 ## Recent Changes
+- Added entity detail page with comprehensive view of entity info, related entities, and comments
+- Implemented comments system for adding notes to entities
 - Added Dashboard section with live stats cards, entity type breakdown chart, and recent activity feed
 - Implemented bulk import feature for entities via CSV/JSON file uploads
 - Added export functionality for cases (JSON and CSV formats)
-- Added keyboard shortcuts for navigation (d=Dashboard, c=Cases, e=Entities, r=Relationships, g=Graph, t=Timeline, k=API Keys, Ctrl+N=New item, Esc=Close modal, Shift+?=Help)
+- Added keyboard shortcuts for navigation
 - Added activity timeline with chronological logging of all actions
 - Enhanced graph visualization with unique node shapes, glowing shadows, curved edges
 
@@ -25,6 +27,7 @@ app/
 │   ├── apikeys.py    # API key management endpoints
 │   ├── auth.py       # Authentication (register/login)
 │   ├── cases.py      # Case management
+│   ├── comments.py   # Comments on entities
 │   ├── entities.py   # Entity management
 │   ├── import_export.py  # Bulk import/export endpoints
 │   ├── relationships.py  # Relationship management
@@ -63,6 +66,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 - `/cases/*` - Case management
 - `/entities/*` - Entity management
 - `/relationships/*` - Relationship management
+- `/comments/*` - Comments on entities
 - `POST /entities/{id}/transforms/run` - Run transforms on an entity
 - `GET /timeline/` - Get activity timeline
 - `POST /import/entities` - Bulk import entities from CSV/JSON
@@ -74,6 +78,18 @@ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 - Live statistics cards showing counts for cases, entities, relationships, and API keys
 - Entity type breakdown chart with color-coded bars
 - Recent activity feed showing latest actions
+
+### Entity Detail Page
+- Comprehensive view of entity information (name, kind, case, description)
+- Shows all related entities via relationships with direction indicators
+- Notes & comments section for adding investigation notes
+- Quick actions: Run Transform, Delete Entity
+
+### Comments System
+- Add notes and comments to any entity
+- View comment history with timestamps
+- Delete comments when no longer needed
+- Useful for tracking investigation findings
 
 ### Bulk Import
 - Upload CSV or JSON files containing entities
@@ -132,8 +148,10 @@ The application uses PostgreSQL for persistent storage. The database is automati
 - `relationships` - Links between entities
 - `apikeys` - API key vault
 - `activity_logs` - Timeline of user actions
+- `comments` - Notes and comments on entities
 
 ## Notes
 - Data persists across restarts via PostgreSQL
 - Tokens signed with HS256 algorithm
 - API keys stored in vault with description field containing actual key value
+- Comments are scoped to entity owner for security
