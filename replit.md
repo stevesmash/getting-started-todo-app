@@ -1,9 +1,11 @@
 # GhostLock
 
 ## Overview
-GhostLock is a full-stack OSINT/threat intelligence platform for managing cases, entities, and relationships. It includes JWT-based authentication, API key management, external service transforms (AbuseIPDB, URLScan), interactive graph visualization, and a modern dark-themed frontend.
+GhostLock is a full-stack OSINT/threat intelligence platform for managing cases, entities, and relationships. It includes JWT-based authentication, API key management, external service transforms, interactive graph visualization, and a modern dark-themed frontend.
 
 ## Recent Changes
+- Added comprehensive transform suite: IP, Domain, URL, Email, Hash, Phone transforms
+- Transform selection modal when multiple transforms are available for an entity type
 - Added entity detail page with comprehensive view of entity info, related entities, and comments
 - Implemented comments system for adding notes to entities
 - Added Dashboard section with live stats cards, entity type breakdown chart, and recent activity feed
@@ -37,7 +39,12 @@ app/
     ├── dispatcher.py # Routes transforms by entity kind
     ├── ip.py         # AbuseIPDB IP analysis
     ├── domain.py     # URLScan domain analysis
-    ├── url.py        # URL analysis (placeholder)
+    ├── url.py        # URLScan URL analysis
+    ├── email.py      # Hunter.io email verification
+    ├── hash.py       # VirusTotal hash analysis
+    ├── phone.py      # NumVerify phone validation
+    ├── whois.py      # WhoisXML domain registration
+    ├── shodan.py     # Shodan IP scanning
     └── keys.py       # API key retrieval helper
 
 static/
@@ -67,6 +74,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 - `/entities/*` - Entity management
 - `/relationships/*` - Relationship management
 - `/comments/*` - Comments on entities
+- `GET /entities/{id}/transforms` - List available transforms for entity
 - `POST /entities/{id}/transforms/run` - Run transforms on an entity
 - `GET /timeline/` - Get activity timeline
 - `POST /import/entities` - Bulk import entities from CSV/JSON
@@ -115,16 +123,49 @@ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 - `Shift+?` - Show help
 
 ### Transforms
-Transforms analyze entities using external APIs and create new related entities:
+Transforms analyze entities using external APIs and create new related entities. When multiple transforms are available for an entity type, a selection modal appears.
 
-#### IP Transform (AbuseIPDB)
-- Requires: `ABUSEIPDB_API_KEY` in API Keys vault
-- Creates: Threat entity with abuse score, country, ISP
+#### IP Transforms
+| Transform | API Key Required | Creates |
+|-----------|-----------------|---------|
+| AbuseIPDB | `ABUSEIPDB_API_KEY` | Threat entity with abuse score, country, ISP |
+| Shodan | `SHODAN_API_KEY` | Open ports, hostnames, vulnerabilities, org info |
 
-#### Domain Transform (URLScan)
-- Requires: `URLSCAN_API_KEY` in API Keys vault
-- Creates: Screenshot entity, IP entities the domain resolves to
-- Note: Takes ~60 seconds due to URLScan processing time
+#### Domain Transforms
+| Transform | API Key Required | Creates |
+|-----------|-----------------|---------|
+| URLScan | `URLSCAN_API_KEY` | Screenshot, resolved IPs (takes ~60s) |
+| WHOIS | `WHOISXML_API_KEY` | Registrar info, registrant, nameservers, expiry dates |
+
+#### URL Transform
+| Transform | API Key Required | Creates |
+|-----------|-----------------|---------|
+| URLScan | `URLSCAN_API_KEY` | Domain extraction, malicious detection, screenshot, contacted IPs (takes ~60s) |
+
+#### Email Transform
+| Transform | API Key Required | Creates |
+|-----------|-----------------|---------|
+| Hunter.io | `HUNTER_API_KEY` | Verification status, score, domain, public sources |
+
+#### Hash Transform (MD5, SHA1, SHA256)
+| Transform | API Key Required | Creates |
+|-----------|-----------------|---------|
+| VirusTotal | `VIRUSTOTAL_API_KEY` | Malware detection, file type, known filenames |
+
+#### Phone Transform
+| Transform | API Key Required | Creates |
+|-----------|-----------------|---------|
+| NumVerify | `NUMVERIFY_API_KEY` | Validation, country, carrier, line type |
+
+### API Key Setup
+Add API keys to the API Keys vault with these exact names:
+- `ABUSEIPDB_API_KEY` - Get at https://abuseipdb.com/
+- `URLSCAN_API_KEY` - Get at https://urlscan.io/
+- `HUNTER_API_KEY` - Get at https://hunter.io/api
+- `VIRUSTOTAL_API_KEY` - Get at https://www.virustotal.com/gui/my-apikey
+- `NUMVERIFY_API_KEY` - Get at https://numverify.com/
+- `WHOISXML_API_KEY` - Get at https://whois.whoisxmlapi.com/
+- `SHODAN_API_KEY` - Get at https://shodan.io/
 
 ### Graph Visualization
 - Interactive network graph using vis-network library
@@ -150,8 +191,28 @@ The application uses PostgreSQL for persistent storage. The database is automati
 - `activity_logs` - Timeline of user actions
 - `comments` - Notes and comments on entities
 
+## Supported Entity Types
+- `ip` - IP addresses
+- `domain` - Domain names
+- `url` - Full URLs
+- `email` - Email addresses
+- `hash` - File hashes (MD5, SHA1, SHA256)
+- `phone` - Phone numbers
+- `threat` - Threat indicators
+- `person` - People
+- `organization` - Organizations
+- `location` - Geographic locations
+- `vulnerability` - CVEs and security vulnerabilities
+- `verification` - Verification results
+- `analysis` - Analysis results
+- `screenshot` - Website screenshots
+- `port` - Network ports
+- `nameserver` - DNS nameservers
+- `whois` - WHOIS records
+
 ## Notes
 - Data persists across restarts via PostgreSQL
 - Tokens signed with HS256 algorithm
 - API keys stored in vault with description field containing actual key value
 - Comments are scoped to entity owner for security
+- URLScan transforms take ~60 seconds due to external API processing

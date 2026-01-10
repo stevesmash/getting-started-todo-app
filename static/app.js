@@ -415,12 +415,12 @@ function renderEntities(entities) {
         return;
     }
     
-    const transformableKinds = ['ip', 'domain', 'url'];
+    const transformableKinds = ['ip', 'domain', 'url', 'email', 'hash', 'phone'];
     
     list.innerHTML = entities.map(e => {
         const canTransform = transformableKinds.includes((e.kind || '').toLowerCase());
         const transformBtn = canTransform 
-            ? `<button class="btn-transform" onclick="runTransform(${e.id}, '${escapeHtml(e.name)}', '${escapeHtml(e.kind)}')">Run Transform</button>`
+            ? `<button class="btn-transform" onclick="showTransformOptions(${e.id}, '${escapeHtml(e.name)}', '${escapeHtml(e.kind)}')">Run Transform</button>`
             : '';
         
         const caseName = cachedCases.find(c => c.id === e.case_id)?.name || `Case ${e.case_id}`;
@@ -457,17 +457,67 @@ function filterEntities() {
     renderEntities(filtered);
 }
 
-async function runTransform(entityId, entityName, entityKind) {
+async function showTransformOptions(entityId, entityName, entityKind) {
+    try {
+        const response = await api(`/entities/${entityId}/transforms`);
+        if (!response.ok) {
+            throw new Error('Failed to get available transforms');
+        }
+        const data = await response.json();
+        const transforms = data.transforms || [];
+        
+        if (transforms.length === 0) {
+            alert(`No transforms available for ${entityKind} entities`);
+            return;
+        }
+        
+        if (transforms.length === 1) {
+            runTransform(entityId, entityName, entityKind, transforms[0].name);
+            return;
+        }
+        
+        const transformList = transforms.map(t => 
+            `<button class="transform-option-btn" onclick="hideModal('transform-select-modal'); runTransform(${entityId}, '${escapeHtml(entityName)}', '${escapeHtml(entityKind)}', '${escapeHtml(t.name)}')">
+                <strong>${escapeHtml(t.name)}</strong>
+                <small>Requires: ${escapeHtml(t.key_required)}</small>
+            </button>`
+        ).join('');
+        
+        document.getElementById('transform-select-modal').innerHTML = `
+            <div class="modal-content">
+                <button class="close-btn" onclick="hideModal('transform-select-modal')">&times;</button>
+                <h2>Select Transform for ${escapeHtml(entityName)}</h2>
+                <p>Entity type: <span class="kind-badge kind-${entityKind.toLowerCase()}">${entityKind}</span></p>
+                <div class="transform-options">
+                    ${transformList}
+                </div>
+            </div>
+        `;
+        showModal('transform-select-modal');
+    } catch (err) {
+        console.error('Error fetching transforms:', err);
+        runTransform(entityId, entityName, entityKind, '');
+    }
+}
+
+async function runTransform(entityId, entityName, entityKind, transformName = '') {
     const entityEl = document.getElementById(`entity-${entityId}`);
-    const btn = entityEl.querySelector('.btn-transform');
-    const originalText = btn.textContent;
+    const btn = entityEl?.querySelector('.btn-transform');
+    const originalText = btn?.textContent || 'Run Transform';
     
-    console.log(`Starting transform for entity ${entityId} (${entityName})`);
-    btn.textContent = 'Running...';
-    btn.disabled = true;
+    console.log(`Starting transform ${transformName} for entity ${entityId} (${entityName})`);
+    if (btn) {
+        btn.textContent = 'Running...';
+        btn.disabled = true;
+    }
     
     try {
-        const response = await api(`/entities/${entityId}/transforms/run`, {
+        let url = `/entities/${entityId}/transforms/run`;
+        if (transformName) {
+            url += `?transform=${encodeURIComponent(transformName)}`;
+        }
+        
+        const response = await api(url, {
             method: 'POST'
         });
         
@@ -497,8 +547,10 @@ async function runTransform(entityId, entityName, entityKind) {
         console.error('Transform execution failed:', err);
         alert('Transform error: ' + err.message);
     } finally {
-        btn.textContent = originalText;
-        btn.disabled = false;
+        if (btn) {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
     }
 }
 
@@ -1069,7 +1121,7 @@ async function showEntityDetail(entityId) {
                 </div>
             </div>
             <div class="detail-actions">
-                <button class="btn-transform" onclick="hideModal('entity-detail-modal'); runTransform(${entity.id}, '${escapeHtml(entity.name)}', '${escapeHtml(entity.kind)}')">Run Transform</button>
+                <button class="btn-transform" onclick="hideModal('entity-detail-modal'); showTransformOptions(${entity.id}, '${escapeHtml(entity.name)}', '${escapeHtml(entity.kind)}')">Run Transform</button>
                 <button class="btn-delete" onclick="hideModal('entity-detail-modal'); deleteEntity(${entity.id})">Delete Entity</button>
             </div>
         </div>
